@@ -35,6 +35,7 @@ Full documentation lives in [docs/](docs/) and is published to the Terraform Reg
 `docs/` is generated — edit the schema `MarkdownDescription` strings, the snippets in
 [examples/](examples/), or the page templates in [templates/](templates/), then run:
 
+
 ```sh
 make docs
 ```
