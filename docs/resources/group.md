@@ -18,8 +18,23 @@ resource "dryad_group" "server_admins" {
   sam_account_name = "SERVER-ADMINS"
   path             = "Contoso/Groups"
   description      = "Administrators of all servers"
+  display_name     = "Server Administrators"
+  info             = "Reviewed quarterly by the platform team."
+  homepage         = "https://wiki.contoso.local/groups/server-admins"
+  managed_by       = "Administrator"
   category         = "Security"
   scope            = "Global"
+
+  protected_from_accidental_deletion = true
+}
+
+# A mail-enabled distribution group.
+resource "dryad_group" "announcements" {
+  name     = "Announcements"
+  path     = "Contoso/Groups"
+  mail     = "announcements@contoso.local"
+  category = "Distribution"
+  scope    = "Universal"
 }
 
 # path also accepts a DN relative to the domain root, for containers that are not OUs.
@@ -42,6 +57,12 @@ resource "dryad_group" "legacy_readers" {
 
 - `category` (String) Group category: `Security` or `Distribution`.
 - `description` (String) Group description.
+- `display_name` (String) Display name (`displayName`).
+- `homepage` (String) Web page address (`wWWHomePage`).
+- `info` (String) Free-form notes (`info`), shown as **Notes** in Active Directory Users and Computers.
+- `mail` (String) Email address (`mail`), used for distribution groups and mail-enabled security groups.
+- `managed_by` (String) Owner of the group (`managedBy`). Accepts a distinguished name, `objectGUID`, SID, `DOMAIN\name` or `sAMAccountName`. The resolved distinguished name is published as `managed_by_dn`.
+- `protected_from_accidental_deletion` (Boolean) Protect the group from accidental deletion. This is not a stored attribute: it adds Deny access control entries for `Everyone` on `Delete` and `DeleteTree`.
 - `sam_account_name` (String) Pre-Windows 2000 group name. Defaults to `name`.
 - `scope` (String) Group scope: `DomainLocal`, `Global` or `Universal`.
 
@@ -49,6 +70,7 @@ resource "dryad_group" "legacy_readers" {
 
 - `distinguished_name` (String) Distinguished name of the group. Changes when the group is renamed or moved.
 - `id` (String) Terraform resource identifier. Equals the group `objectGUID`, which is stable across renames and moves.
+- `managed_by_dn` (String) Resolved distinguished name of `managed_by`.
 - `sid` (String) Security identifier of the group.
 
 ## Import

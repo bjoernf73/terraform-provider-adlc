@@ -31,11 +31,14 @@ resource "dryad_organizational_unit" "smoke" {
 }
 
 resource "dryad_group" "smoke" {
-  name        = var.group_name
-  path        = dryad_organizational_unit.smoke.path
-  description = var.ou_description
-  category    = "Security"
-  scope       = "Global"
+  name         = var.group_name
+  path         = dryad_organizational_unit.smoke.path
+  description  = var.ou_description
+  display_name = "${var.group_name} (CI)"
+  info         = "Created by the terraform-provider-dryad pipeline."
+  managed_by   = "Administrator"
+  category     = "Security"
+  scope        = "Global"
 }
 
 output "id" {
@@ -60,6 +63,10 @@ output "group_distinguished_name" {
 
 output "group_sid" {
   value = dryad_group.smoke.sid
+}
+
+output "group_managed_by_dn" {
+  value = dryad_group.smoke.managed_by_dn
 }
 
 # Delegates computer management on the OU to the group stored inside it, which is the

@@ -41,8 +41,8 @@ variable "winrm_auth" {
 
 variable "insecure" {
   type        = bool
-  description = "Skip TLS certificate validation. Only for throwaway CI targets."
-  default     = true
+  description = "Skip TLS certificate validation for WinRM and host key verification for SSH."
+  default     = false
 }
 
 variable "powershell_path" {

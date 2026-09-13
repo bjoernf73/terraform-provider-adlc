@@ -112,8 +112,9 @@ e2e:ssh:
     TF_VAR_username: "$DRYAD_USERNAME"
     TF_VAR_password: "$DRYAD_PASSWORD"
     TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-ssh"
-    TF_VAR_group_name: "dryad-ci-$CI_PIPELINE_ID-ssh"
-  rules:
+    TF_VAR_group_name: "dryad-ci-$CI_PIPELINE_ID-ssh"    # No known_hosts entry for the target, so host key verification is disabled here.
+    # Set ssh_known_hosts_path or ssh_host_key to turn it back on.
+    TF_VAR_insecure: "true"  rules:
     # Requires DRYAD_SSH_USERNAME and DRYAD_SSH_PASSWORD (masked) in addition to DRYAD_HOST.
     - if: '$DRYAD_HOST == null || $DRYAD_HOST == ""'
       when: never
@@ -122,3 +123,40 @@ e2e:ssh:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - when: manual
       allow_failure: true
+
+# Applies a fixed-name configuration over WinRM/HTTPS with every property populated, and
+# deliberately leaves the objects in place so they can be inspected in ADUC. The state is
+# discarded with the job; the next run reconciles the same objects rather than creating
+# new ones, because every ensure script is idempotent.
+e2e:winrm-https:
+  extends: .e2e_template
+  variables:
+    TF_VAR_username: "$DRYAD_USERNAME"
+    TF_VAR_password: "$DRYAD_PASSWORD"
+  rules:
+    # Requires an HTTPS listener on 5986; opt in with DRYAD_WINRM_HTTPS=true.
+    # Certificate validation is on by default: set TF_VAR_insecure=true if the
+    # listener uses a self-signed certificate.
+    - if: '$DRYAD_HOST == null || $DRYAD_HOST == ""'
+      when: never
+    - if: '$DRYAD_WINRM_HTTPS != "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: manual
+      allow_failure: true
+  script:
+    - cd test/showcase
+    - terraform fmt -check -recursive
+    - terraform init -no-color
+    - terraform validate -no-color
+    - terraform apply -auto-approve -no-color
+    # Idempotency: re-applying the same configuration must produce no changes.
+    - terraform plan -detailed-exitcode -no-color
+    - terraform output -json | tee "$CI_PROJECT_DIR/showcase-outputs.json"
+  after_script:
+    - echo "Showcase objects left in place for inspection."
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths:
+      - showcase-outputs.json

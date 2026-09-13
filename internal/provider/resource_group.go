@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -37,6 +38,13 @@ type groupResourceModel struct {
 	SamAccountName    types.String `tfsdk:"sam_account_name"`
 	Path              types.String `tfsdk:"path"`
 	Description       types.String `tfsdk:"description"`
+	DisplayName       types.String `tfsdk:"display_name"`
+	Mail              types.String `tfsdk:"mail"`
+	Info              types.String `tfsdk:"info"`
+	Homepage          types.String `tfsdk:"homepage"`
+	ManagedBy         types.String `tfsdk:"managed_by"`
+	ManagedByDN       types.String `tfsdk:"managed_by_dn"`
+	Protected         types.Bool   `tfsdk:"protected_from_accidental_deletion"`
 	Category          types.String `tfsdk:"category"`
 	Scope             types.String `tfsdk:"scope"`
 	DistinguishedName types.String `tfsdk:"distinguished_name"`
@@ -77,6 +85,33 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:            true,
 				MarkdownDescription: "Group description.",
 			},
+			"display_name": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "Display name (`displayName`).",
+			},
+			"mail": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "Email address (`mail`), used for distribution groups and mail-enabled security groups.",
+			},
+			"info": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "Free-form notes (`info`), shown as **Notes** in Active Directory Users and Computers.",
+			},
+			"homepage": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "Web page address (`wWWHomePage`).",
+			},
+			"managed_by": schema.StringAttribute{
+				Optional: true,
+				MarkdownDescription: "Owner of the group (`managedBy`). Accepts a distinguished name, `objectGUID`, SID, " +
+					"`DOMAIN\\name` or `sAMAccountName`. The resolved distinguished name is published as `managed_by_dn`.",
+			},
+			"protected_from_accidental_deletion": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+				MarkdownDescription: "Protect the group from accidental deletion. This is not a stored attribute: it adds Deny access control entries for `Everyone` on `Delete` and `DeleteTree`.",
+			},
 			"category": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
@@ -105,6 +140,10 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"managed_by_dn": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Resolved distinguished name of `managed_by`.",
 			},
 		},
 	}
@@ -147,7 +186,7 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	group, err := ad.ReadGroup(ctx, r.client, state.ID.ValueString(), state.Path.ValueString())
+	group, err := ad.ReadGroup(ctx, r.client, state.ID.ValueString(), state.Path.ValueString(), state.ManagedBy.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read group", err.Error())
 		return
@@ -203,21 +242,41 @@ func groupInput(model groupResourceModel) ad.GroupInput {
 	}
 
 	return ad.GroupInput{
-		Name:           model.Name.ValueString(),
-		SamAccountName: samAccountName,
-		Path:           model.Path.ValueString(),
-		Description:    optionalString(model.Description),
-		Category:       model.Category.ValueString(),
-		Scope:          model.Scope.ValueString(),
+		Name:                            model.Name.ValueString(),
+		SamAccountName:                  samAccountName,
+		Path:                            model.Path.ValueString(),
+		Description:                     optionalString(model.Description),
+		DisplayName:                     optionalString(model.DisplayName),
+		Mail:                            optionalString(model.Mail),
+		Info:                            optionalString(model.Info),
+		Homepage:                        optionalString(model.Homepage),
+		ManagedBy:                       model.ManagedBy.ValueString(),
+		ProtectedFromAccidentalDeletion: model.Protected.ValueBool(),
+		Category:                        model.Category.ValueString(),
+		Scope:                           model.Scope.ValueString(),
 	}
 }
 
 // groupState keeps the configured path when it resolves to the same container, because
-// a slash path and a distinguished name can denote the same place.
+// a slash path and a distinguished name can denote the same place. managed_by is kept
+// for the same reason: it may be configured as a name but is stored as a DN.
 func groupState(model groupResourceModel, group *ad.Group) groupResourceModel {
 	path := types.StringValue(group.Path)
 	if group.PathMatch && !model.Path.IsNull() && !model.Path.IsUnknown() {
 		path = model.Path
+	}
+
+	managedBy := types.StringNull()
+	if group.ManagedBy != "" {
+		managedBy = types.StringValue(group.ManagedBy)
+		if group.ManagedByMatch && !model.ManagedBy.IsNull() && !model.ManagedBy.IsUnknown() {
+			managedBy = model.ManagedBy
+		}
+	}
+
+	managedByDN := types.StringNull()
+	if group.ManagedBy != "" {
+		managedByDN = types.StringValue(group.ManagedBy)
 	}
 
 	return groupResourceModel{
@@ -226,6 +285,13 @@ func groupState(model groupResourceModel, group *ad.Group) groupResourceModel {
 		SamAccountName:    types.StringValue(group.SamAccountName),
 		Path:              path,
 		Description:       stringPointerToTerraform(group.Description),
+		DisplayName:       stringPointerToTerraform(group.DisplayName),
+		Mail:              stringPointerToTerraform(group.Mail),
+		Info:              stringPointerToTerraform(group.Info),
+		Homepage:          stringPointerToTerraform(group.Homepage),
+		ManagedBy:         managedBy,
+		ManagedByDN:       managedByDN,
+		Protected:         types.BoolValue(group.ProtectedFromAccidentalDeletion),
 		Category:          types.StringValue(group.Category),
 		Scope:             types.StringValue(group.Scope),
 		DistinguishedName: types.StringValue(group.DistinguishedName),
