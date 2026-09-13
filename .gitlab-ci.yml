@@ -111,7 +111,9 @@ e2e:ssh:
     TF_VAR_transport: "ssh"
     TF_VAR_username: "$DRYAD_USERNAME"
     TF_VAR_password: "$DRYAD_PASSWORD"
-    TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-ssh"    TF_VAR_group_name: "dryad-ci-$CI_PIPELINE_ID-ssh"  rules:
+    TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-ssh"
+    TF_VAR_group_name: "dryad-ci-$CI_PIPELINE_ID-ssh"
+  rules:
     # Requires DRYAD_SSH_USERNAME and DRYAD_SSH_PASSWORD (masked) in addition to DRYAD_HOST.
     - if: '$DRYAD_HOST == null || $DRYAD_HOST == ""'
       when: never
