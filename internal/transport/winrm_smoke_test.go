@@ -52,7 +52,7 @@ func TestWinRMSmoke(t *testing.T) {
 		t.Fatalf("creating runner: %v", err)
 	}
 
-	result, err := runner.Run(context.Background(), "whoami")
+	result, err := runner.Run(context.Background(), "whoami", "")
 	t.Logf("exit=%d stdout=%q stderr=%q", result.ExitCode, result.Stdout, result.Stderr)
 	if err != nil {
 		t.Fatalf("running command: %v", err)

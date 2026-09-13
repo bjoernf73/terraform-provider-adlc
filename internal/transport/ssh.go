@@ -32,7 +32,7 @@ func NewSSHRunner(cfg config.Config) (Runner, error) {
 	return &sshRunner{config: cfg}, nil
 }
 
-func (r *sshRunner) Run(_ context.Context, command string) (Result, error) {
+func (r *sshRunner) Run(_ context.Context, command string, stdin string) (Result, error) {
 	sshConfig, err := r.buildClientConfig()
 	if err != nil {
 		return Result{}, err
@@ -56,6 +56,7 @@ func (r *sshRunner) Run(_ context.Context, command string) (Result, error) {
 
 	session.Stdout = &stdout
 	session.Stderr = &stderr
+	session.Stdin = strings.NewReader(stdin)
 
 	runErr := session.Run(command)
 	result := Result{

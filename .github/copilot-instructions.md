@@ -41,17 +41,22 @@ module's build. `go build ./...` at the repo root must never need them.
 ```
 main.go                          providerserver.Serve -> internal/provider
 internal/config                  Config struct: transport, creds, timeouts, powershell_path, domain_controller
-internal/transport               Runner interface { Run(ctx, command) (Result, error) }; winrm.go, ssh.go
-internal/powershell              BuildCommand (UTF-16LE -EncodedCommand), DecodeCLIXML for stderr
+internal/transport               Runner interface { Run(ctx, command, stdin) (Result, error) }; winrm.go, ssh.go
+internal/powershell              BuildCommand (fixed stdin bootstrap), EncodeScript (gzip+base64), DecodeCLIXML
 internal/client                  Client: RunPowerShell, RunPowerShellJSON (decode stdout into target)
-internal/ad                      One file per AD object type: Ensure/Read/Update/Delete + PS script constants
+internal/ad                      One file per AD object type + scripts/*.ps1 embedded via go:embed
 internal/provider                Provider definition + one resource_*.go per resource
 examples/<resource>/             Runnable HCL example per resource
 ```
 
 Data flow for any operation:
 `resource_x.go` → `internal/ad` builds a script → `client.RunPowerShellJSON` →
-`transport.Runner` (WinRM/SSH) → remote `pwsh -EncodedCommand` → JSON on stdout → st **and** the
+`transport.Runner` (WinRM/SSH) → remote `pwsh -EncodedCommand <bootstrap>` with the gzipped
+script on **stdin** → JSON on stdout → struct.
+
+The command line is a fixed ~1.2 KB bootstrap that reads stdin, gunzips and `Invoke-Expression`s
+the script. This exists because WinRM shells run under `cmd.exe`, whose 8191 character limit
+the scripts would otherwise exceed. **Never put the script on the command line.**
    equivalent resource in `ref/terraform-provider-ad/ad/` + its page under
    `ref/terraform-provider-ad/docs/` — use them to decide the attribute set, defaults, read/update
    behaviour and import ID before writing any Goruct.
@@ -59,16 +64,19 @@ Data flow for any operation:
 ## Adding a new AD resource
 
 1. Find the matching logic in `ref/dry.module.ad` (`functions/` and `scriptblocks/`).
-2. Create `internal/ad/<object>.go` with:
+2. Create `internal/ad/scripts/<object>_common.ps1` plus one `.ps1` per operation
+   (`_ensure`, `_read`, `_update`, `_delete`). They are embedded by
+   [internal/ad/scripts.go](internal/ad/scripts.go) — never inline PowerShell in Go strings.
+3. Create `internal/ad/<object>.go` with:
    - a result struct with `json:"snake_case"` tags,
    - `Ensure…`, `Read…`, `Update…`, `Delete…` functions taking `(ctx, *client.Client, …)`,
-   - PowerShell bodies as `const` strings, plus a shared `…CommonScript` const,
-   - a `buildScript` that marshals inputs to JSON, base64-encodes them, and injects them as
-     `$payload` — **never** string-interpolate user input directly into PowerShell.
-3. Create `internal/provider/resource_<object>.go` implementing `resource.Resource`,
+   - script filename constants passed to `buildScript(c, common, body, payload)`, which
+     marshals inputs to JSON, base64-encodes them and injects them as `$payload` —
+     **never** string-interpolate user input directly into PowerShell.
+4. Create `internal/provider/resource_<object>.go` implementing `resource.Resource`,
    `resource.ResourceWithConfigure`, `resource.ResourceWithImportState`.
-4. Register the constructor in `Resources()` in [internal/provider/provider.go](internal/provider/provider.go).
-5. Add `examples/<resource>/main.tf` + `variables.tf` + `README.md`.
+5. Register the constructor in `Resources()` in [internal/provider/provider.go](internal/provider/provider.go).
+6. Add `examples/<resource>/main.tf` + `variables.tf` + `README.md`.
 
 ### Resource conventions
 
@@ -77,6 +85,8 @@ Data flow for any operation:
   also exposed as a computed attribute.
 - Immutable inputs get `stringplanmodifier.RequiresReplace()`; anything reconcilable gets a real
   `Update` implementation.
+- Computed attributes derived from immutable inputs get `stringplanmodifier.UseStateForUnknown()`
+  so in-place updates do not mark them unknown.
 - Every attribute has a `MarkdownDescription`. Secrets are `Sensitive: true`.
 - `Read` must remove the resource from state (`resp.State.RemoveResource(ctx)`) when the remote
   object no longer exists — the script should return `exists: false` rather than throwing.

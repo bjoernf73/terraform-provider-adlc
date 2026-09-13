@@ -10,30 +10,19 @@ import (
 	"unicode/utf16"
 )
 
-// maxCommandLength is the cmd.exe command line limit the WinRM shell runs under.
-const maxCommandLength = 8000
-
-func BuildCommand(powerShellPath string, script string) (string, error) {
+// BuildCommand returns the remote command line, which is a fixed-size bootstrap that
+// reads the real script from stdin. Keeping the script off the command line avoids the
+// 8191 character cmd.exe limit that WinRM shells run under.
+func BuildCommand(powerShellPath string) (string, error) {
 	if strings.TrimSpace(powerShellPath) == "" {
 		return "", fmt.Errorf("powershell_path must not be empty")
 	}
 
-	// -EncodedCommand inflates by 2.67x (UTF-16LE then base64), so the script is
-	// gzipped and unpacked by a small stub on the remote side.
-	stub, err := compressScript(script)
-	if err != nil {
-		return "", err
-	}
-
-	command := fmt.Sprintf(`"%s" -NoLogo -NoProfile -NonInteractive -EncodedCommand %s`, powerShellPath, encodeUTF16LEBase64(stub))
-	if len(command) > maxCommandLength {
-		return "", fmt.Errorf("remote command is %d characters after compression, exceeding the %d character command line limit", len(command), maxCommandLength)
-	}
-
-	return command, nil
+	return fmt.Sprintf(`"%s" -NoLogo -NoProfile -NonInteractive -EncodedCommand %s`, powerShellPath, encodeUTF16LEBase64(stdinBootstrap)), nil
 }
 
-func compressScript(script string) (string, error) {
+// EncodeScript compresses a script into the base64 form the bootstrap expects on stdin.
+func EncodeScript(script string) (string, error) {
 	var compressed bytes.Buffer
 
 	writer, err := gzip.NewWriterLevel(&compressed, gzip.BestCompression)
@@ -49,16 +38,17 @@ func compressScript(script string) (string, error) {
 		return "", fmt.Errorf("flushing compressed script: %w", err)
 	}
 
-	return fmt.Sprintf(decompressStub, base64.StdEncoding.EncodeToString(compressed.Bytes())), nil
+	return base64.StdEncoding.EncodeToString(compressed.Bytes()), nil
 }
 
-const decompressStub = `$ErrorActionPreference='Stop';` +
-	`$bytes=[System.Convert]::FromBase64String('%s');` +
+const stdinBootstrap = `$ErrorActionPreference='Stop';` +
+	`$encoded=[Console]::In.ReadToEnd();` +
+	`$bytes=[System.Convert]::FromBase64String($encoded.Trim());` +
 	`$stream=New-Object System.IO.MemoryStream(,$bytes);` +
 	`$gzip=New-Object System.IO.Compression.GZipStream($stream,[System.IO.Compression.CompressionMode]::Decompress);` +
 	`$reader=New-Object System.IO.StreamReader($gzip,[System.Text.Encoding]::UTF8);` +
-	`$decoded=$reader.ReadToEnd();$reader.Close();` +
-	`Invoke-Expression $decoded`
+	`$script=$reader.ReadToEnd();$reader.Close();` +
+	`Invoke-Expression $script`
 
 func encodeUTF16LEBase64(input string) string {
 	utf16Data := utf16.Encode([]rune(input))

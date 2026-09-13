@@ -49,6 +49,9 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Terraform resource identifier. Equals the organizational unit distinguished name.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"path": schema.StringAttribute{
 				Required:            true,
@@ -68,10 +71,16 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 			"distinguished_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Distinguished name of the organizational unit.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Leaf organizational unit name.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}

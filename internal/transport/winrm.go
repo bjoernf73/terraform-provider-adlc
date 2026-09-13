@@ -87,11 +87,11 @@ func NewWinRMRunner(cfg config.Config) (Runner, error) {
 	}, nil
 }
 
-func (r *winrmRunner) Run(ctx context.Context, command string) (Result, error) {
+func (r *winrmRunner) Run(ctx context.Context, command string, stdin string) (Result, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	exitCode, err := r.client.RunWithContext(ctx, command, &stdout, &stderr)
+	exitCode, err := r.client.RunWithContextWithInput(ctx, command, &stdout, &stderr, strings.NewReader(stdin))
 	result := Result{
 		Stdout:   stdout.String(),
 		Stderr:   stderr.String(),

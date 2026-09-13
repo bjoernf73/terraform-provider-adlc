@@ -15,7 +15,7 @@ type Result struct {
 }
 
 type Runner interface {
-	Run(ctx context.Context, command string) (Result, error)
+	Run(ctx context.Context, command string, stdin string) (Result, error)
 }
 
 func NewRunner(cfg config.Config) (Runner, error) {

@@ -33,12 +33,17 @@ func (c *Client) Config() config.Config {
 }
 
 func (c *Client) RunPowerShell(ctx context.Context, script string) (transport.Result, error) {
-	command, err := powershell.BuildCommand(c.config.PowerShellPath, script)
+	command, err := powershell.BuildCommand(c.config.PowerShellPath)
 	if err != nil {
 		return transport.Result{}, err
 	}
 
-	result, err := c.runner.Run(ctx, command)
+	stdin, err := powershell.EncodeScript(script)
+	if err != nil {
+		return transport.Result{}, err
+	}
+
+	result, err := c.runner.Run(ctx, command, stdin)
 	result.Stderr = powershell.DecodeCLIXML(result.Stderr)
 
 	if err != nil {
