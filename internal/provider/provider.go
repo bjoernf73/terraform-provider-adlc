@@ -165,6 +165,7 @@ func (p *dryadProvider) Configure(ctx context.Context, req frameworkprovider.Con
 func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewOrganizationalUnitResource,
+		NewGroupResource,
 	}
 }
 

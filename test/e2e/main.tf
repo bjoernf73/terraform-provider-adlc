@@ -28,6 +28,14 @@ resource "dryad_organizational_unit" "smoke" {
   delete_subtree = true
 }
 
+resource "dryad_group" "smoke" {
+  name        = var.group_name
+  path        = dryad_organizational_unit.smoke.path
+  description = var.ou_description
+  category    = "Security"
+  scope       = "Global"
+}
+
 output "id" {
   value = dryad_organizational_unit.smoke.id
 }
@@ -38,4 +46,16 @@ output "distinguished_name" {
 
 output "name" {
   value = dryad_organizational_unit.smoke.name
+}
+
+output "group_id" {
+  value = dryad_group.smoke.id
+}
+
+output "group_distinguished_name" {
+  value = dryad_group.smoke.distinguished_name
+}
+
+output "group_sid" {
+  value = dryad_group.smoke.sid
 }

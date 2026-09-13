@@ -24,10 +24,10 @@ type OrganizationalUnit struct {
 }
 
 func EnsureOrganizationalUnit(ctx context.Context, c *client.Client, path string, description *string) (*OrganizationalUnit, error) {
-	script, err := buildScript(c, organizationalUnitCommon, organizationalUnitEnsure, map[string]any{
+	script, err := buildScript(c, map[string]any{
 		"path":        NormalizePath(path),
 		"description": description,
-	})
+	}, commonScript, organizationalUnitCommon, organizationalUnitEnsure)
 	if err != nil {
 		return nil, err
 	}
@@ -41,9 +41,9 @@ func EnsureOrganizationalUnit(ctx context.Context, c *client.Client, path string
 }
 
 func ReadOrganizationalUnit(ctx context.Context, c *client.Client, distinguishedName string) (*OrganizationalUnit, error) {
-	script, err := buildScript(c, organizationalUnitCommon, organizationalUnitRead, map[string]any{
+	script, err := buildScript(c, map[string]any{
 		"distinguished_name": distinguishedName,
-	})
+	}, commonScript, organizationalUnitCommon, organizationalUnitRead)
 	if err != nil {
 		return nil, err
 	}
@@ -57,10 +57,10 @@ func ReadOrganizationalUnit(ctx context.Context, c *client.Client, distinguished
 }
 
 func UpdateOrganizationalUnitDescription(ctx context.Context, c *client.Client, distinguishedName string, description *string) (*OrganizationalUnit, error) {
-	script, err := buildScript(c, organizationalUnitCommon, organizationalUnitUpdate, map[string]any{
+	script, err := buildScript(c, map[string]any{
 		"distinguished_name": distinguishedName,
 		"description":        description,
-	})
+	}, commonScript, organizationalUnitCommon, organizationalUnitUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +74,10 @@ func UpdateOrganizationalUnitDescription(ctx context.Context, c *client.Client, 
 }
 
 func DeleteOrganizationalUnit(ctx context.Context, c *client.Client, distinguishedName string, deleteSubtree bool) error {
-	script, err := buildScript(c, organizationalUnitCommon, organizationalUnitDelete, map[string]any{
+	script, err := buildScript(c, map[string]any{
 		"distinguished_name": distinguishedName,
 		"delete_subtree":     deleteSubtree,
-	})
+	}, commonScript, organizationalUnitCommon, organizationalUnitDelete)
 	if err != nil {
 		return err
 	}

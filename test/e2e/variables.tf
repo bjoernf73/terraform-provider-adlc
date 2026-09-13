@@ -68,3 +68,9 @@ variable "ou_description" {
   description = "Description set on the leaf OU."
   default     = "terraform-provider-dryad CI smoke test"
 }
+
+variable "group_name" {
+  type        = string
+  description = "Name of the group created by the smoke test."
+  default     = "dryad-ci-group"
+}
