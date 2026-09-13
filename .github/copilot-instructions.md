@@ -1,0 +1,124 @@
+# terraform-provider-dryad — repository instructions
+
+## What this repository is
+
+A Terraform provider (`dryad`) that manages **Active Directory** objects by executing
+**PowerShell 7** on a remote Windows host over **WinRM** or **SSH**. There is no native
+LDAP client — every operation is a PowerShell script that emits JSON on stdout, which Go
+decodes into a typed struct.
+
+Module path: `github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad`
+Provider address: `registry.terraform.io/bjoernf73/dryad`
+
+## Non-negotiable rules
+
+1. **Use `terraform-plugin-framework` only.** Never use `helper/schema`, `terraform-plugin-sdk`,
+   `*schema.Resource`, `d.Get`/`d.Set`, or `schema.CreateContext`. `ref/terraform-provider-ad` is a
+   rich source of *behaviour* (what a resource does, which attributes it exposes, how it talks to AD),
+   but its *mechanics* are SDKv2 — always restate them in framework terms:
+   `d.Get("x")` → typed model + `req.Plan.Get`, `d.Set` → `resp.State.Set`,
+   `ForceNew` → `RequiresReplace()`, `ValidateFunc` → validators,
+   `d.SetId("")` → `resp.State.RemoveResource(ctx)`, `diag.Diagnostics` return → `resp.Diagnostics.AddError`.
+2. **Never edit anything under `ref/`.** It is read-only reference material (see below).
+3. **Every resource implements full CRUD**, not just create. The PowerShell reference module
+   is create-oriented; you must add read, update (or `RequiresReplace`), delete and import.
+4. **Remote scripts must be idempotent and JSON-only.** stdout is parsed as JSON; anything else
+   breaks the client.
+
+## The `ref/` folder (read-only reference)
+
+| Folder | What it is | How to use it |
+| --- | --- | --- |
+| `ref/dry.module.ad` | The author's PowerShell module for AD objects (classes, functions, `scriptblocks/DryAD_SB_*.ps1`). Create-only. | Source of truth for **AD semantics**: attribute names, OU path handling, group/user/GPO/WMI-filter logic. Adapt scriptblocks into Go string constants. |
+| `ref/terraform-plugin-framework` | Upstream HashiCorp framework source. | Source of truth for **provider structure and APIs**: schema types, plan modifiers, validators, `resource.ResourceWith*` interfaces, acceptance test helpers. |
+| `ref/terraform-provider-ad` | The existing community AD provider (SDKv2). | A full functional reference, not just transport: resource/attribute coverage and naming, AD object semantics and PowerShell for users/groups/computers/OUs/GPOs/GPLinks, import and ID formats, CLIXML handling, WinRM/Kerberos/NTLM wiring, docs and build/release tooling. **Translate, never transplant — its SDKv2 architecture must not be copied.** |
+
+`ref/` subfolders are separate Go modules / PowerShell modules, so they are not part of this
+module's build. `go build ./...` at the repo root must never need them.
+
+## Architecture
+
+```
+main.go                          providerserver.Serve -> internal/provider
+internal/config                  Config struct: transport, creds, timeouts, powershell_path, domain_controller
+internal/transport               Runner interface { Run(ctx, command) (Result, error) }; winrm.go, ssh.go
+internal/powershell              BuildCommand (UTF-16LE -EncodedCommand), DecodeCLIXML for stderr
+internal/client                  Client: RunPowerShell, RunPowerShellJSON (decode stdout into target)
+internal/ad                      One file per AD object type: Ensure/Read/Update/Delete + PS script constants
+internal/provider                Provider definition + one resource_*.go per resource
+examples/<resource>/             Runnable HCL example per resource
+```
+
+Data flow for any operation:
+`resource_x.go` → `internal/ad` builds a script → `client.RunPowerShellJSON` →
+`transport.Runner` (WinRM/SSH) → remote `pwsh -EncodedCommand` → JSON on stdout → st **and** the
+   equivalent resource in `ref/terraform-provider-ad/ad/` + its page under
+   `ref/terraform-provider-ad/docs/` — use them to decide the attribute set, defaults, read/update
+   behaviour and import ID before writing any Goruct.
+
+## Adding a new AD resource
+
+1. Find the matching logic in `ref/dry.module.ad` (`functions/` and `scriptblocks/`).
+2. Create `internal/ad/<object>.go` with:
+   - a result struct with `json:"snake_case"` tags,
+   - `Ensure…`, `Read…`, `Update…`, `Delete…` functions taking `(ctx, *client.Client, …)`,
+   - PowerShell bodies as `const` strings, plus a shared `…CommonScript` const,
+   - a `buildScript` that marshals inputs to JSON, base64-encodes them, and injects them as
+     `$payload` — **never** string-interpolate user input directly into PowerShell.
+3. Create `internal/provider/resource_<object>.go` implementing `resource.Resource`,
+   `resource.ResourceWithConfigure`, `resource.ResourceWithImportState`.
+4. Register the constructor in `Resources()` in [internal/provider/provider.go](internal/provider/provider.go).
+5. Add `examples/<resource>/main.tf` + `variables.tf` + `README.md`.
+
+### Resource conventions
+
+- `Metadata`: `resp.TypeName = req.ProviderTypeName + "_<object>"`.
+- `id` is `Computed` and equals the object's **distinguished name**; `distinguished_name` is
+  also exposed as a computed attribute.
+- Immutable inputs get `stringplanmodifier.RequiresReplace()`; anything reconcilable gets a real
+  `Update` implementation.
+- Every attribute has a `MarkdownDescription`. Secrets are `Sensitive: true`.
+- `Read` must remove the resource from state (`resp.State.RemoveResource(ctx)`) when the remote
+  object no longer exists — the script should return `exists: false` rather than throwing.
+- `Configure` type-asserts `req.ProviderData.(*client.Client)` and returns early when it is nil.
+- Errors surface via `resp.Diagnostics.AddError(summary, err.Error())`; never `panic` or `log.Fatal`.
+- Import via `resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)`.
+
+### PowerShell script conventions
+
+- Start with `$ErrorActionPreference = 'Stop'` and `Import-Module ActiveDirectory -ErrorAction Stop`.
+- Honour `$payload.domain_controller` by splatting a `-Server` parameter (`Get-ServerParams`).
+- Output exactly one `ConvertTo-Json` document on stdout; write nothing else to stdout.
+- Treat "identity not found" as a normal state (`exists: false`), not an error.
+- Paths are slash-delimited relative to the domain root (`Contoso/Servers/Windows`) and converted
+  to DNs in PowerShell; missing parent OUs are created on demand.
+
+## Go conventions
+
+- Go 1.25, standard `gofmt`. Wrap errors with `%w` and lowercase messages
+  (`fmt.Errorf("reading organizational unit: %w", err)`).
+- Keep `internal/ad` free of any `terraform-plugin-framework` types; keep
+  `internal/provider` free of raw PowerShell.
+- Helpers converting between `types.String` and `*string` live in the `provider` package
+  (`optionalString`, `stringPointerToTerraform`) — reuse them.
+
+## Commands
+
+```sh
+go build ./...
+go vet ./...
+gofmt -l .
+go test ./...
+TF_ACC=1 go test ./internal/provider/... -v   # acceptance tests (needs a live DC)
+```
+
+Acceptance tests require a reachable domain controller and are opt-in via `TF_ACC`.
+
+## Security
+
+- Credentials and keys must be `Sensitive: true` and must never be logged or interpolated
+  into script text in cleartext beyond what the transport requires.
+- `insecure` disables TLS/host-key verification — keep it opt-in and documented as unsafe.
+- Prefer host key verification (`ssh_known_hosts_path` / `ssh_host_key`) and TLS for WinRM.
+- All remote input crosses a trust boundary: pass it as base64 JSON `$payload`, never as
+  concatenated script text.
