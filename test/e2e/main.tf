@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "dryad" {
-  transport       = "winrm"
+  transport       = var.transport
   host            = var.host
   port            = var.port
   username        = var.username

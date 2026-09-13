@@ -3,10 +3,17 @@ variable "host" {
   description = "IP address or hostname of the target domain controller."
 }
 
+variable "transport" {
+  type        = string
+  description = "Connection transport: winrm or ssh."
+  default     = "winrm"
+}
+
 variable "port" {
   type        = number
-  description = "WinRM port."
-  default     = 5985
+  description = "Remote port. Null lets the provider pick 5985/5986 for WinRM and 22 for SSH."
+  default     = null
+  nullable    = true
 }
 
 variable "username" {
