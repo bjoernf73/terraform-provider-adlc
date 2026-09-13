@@ -1,4 +1,4 @@
-module github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad
+module github.com/henrikhalt/terraform-provider-dryad
 
 go 1.25.0
 

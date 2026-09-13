@@ -3,7 +3,7 @@ terraform {
 
   required_providers {
     dryad = {
-      source  = "bjoernf73/dryad"
+      source  = "henrikhalt/dryad"
       version = "0.0.0-ci"
     }
   }
@@ -58,4 +58,24 @@ output "group_distinguished_name" {
 
 output "group_sid" {
   value = dryad_group.smoke.sid
+}
+
+# Delegates computer management on the OU to the group stored inside it, which is the
+# dependency shape that a nested acl attribute could not express without a cycle.
+resource "dryad_access_rule" "smoke" {
+  target                = dryad_organizational_unit.smoke.distinguished_name
+  trustee               = dryad_group.smoke.sid
+  rights                = ["CreateChild", "DeleteChild"]
+  access                = "Allow"
+  object_type           = "computer"
+  inherited_object_type = "organizationalUnit"
+  inheritance           = "Descendents"
+}
+
+output "access_rule_id" {
+  value = dryad_access_rule.smoke.id
+}
+
+output "access_rule_trustee_sid" {
+  value = dryad_access_rule.smoke.trustee_sid
 }

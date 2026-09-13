@@ -13,8 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/client"
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/config"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
 )
 
 var _ frameworkprovider.Provider = &dryadProvider{}
@@ -166,6 +166,7 @@ func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource 
 	return []func() resource.Resource{
 		NewOrganizationalUnitResource,
 		NewGroupResource,
+		NewAccessRuleResource,
 	}
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
 )
 
 const (

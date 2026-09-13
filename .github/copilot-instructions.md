@@ -7,8 +7,8 @@ A Terraform provider (`dryad`) that manages **Active Directory** objects by exec
 LDAP client — every operation is a PowerShell script that emits JSON on stdout, which Go
 decodes into a typed struct.
 
-Module path: `github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad`
-Provider address: `registry.terraform.io/bjoernf73/dryad`
+Module path: `github.com/henrikhalt/terraform-provider-dryad`
+Provider address: `registry.terraform.io/henrikhalt/dryad`
 
 ## Non-negotiable rules
 

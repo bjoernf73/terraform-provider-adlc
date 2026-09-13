@@ -1,0 +1,40 @@
+---
+page_title: "Provider: dryad"
+description: |-
+  The dryad provider manages Active Directory objects by executing PowerShell 7 on a
+  remote Windows host over WinRM or SSH.
+---
+
+# dryad Provider
+
+{{ .Description | trimspace }}
+
+There is no LDAP client: every operation is a PowerShell script executed on a Windows
+host that has the `ActiveDirectory` module available, typically a domain controller.
+Scripts emit a single JSON document which the provider decodes, so nothing is parsed
+out of human-readable output.
+
+## Requirements
+
+- PowerShell 7 (`pwsh`) on the target host
+- The `ActiveDirectory` PowerShell module
+- WinRM or OpenSSH reachable from wherever Terraform runs
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+## Authentication
+
+| Transport | Mechanisms |
+| --- | --- |
+| `winrm` | `basic`, `ntlm`, `kerberos` |
+| `ssh` | password, private key |
+
+WinRM `basic` authentication only accepts local accounts, so it cannot be used with a
+domain account on a domain controller. `ntlm` over plain HTTP requires
+`AllowUnencrypted = true` on the WinRM service, because NTLM message encryption is not
+applied; prefer HTTPS on port 5986. `kerberos` requires the target's FQDN rather than
+an IP address, since the SPN is derived from the host name.
+
+{{ .SchemaMarkdown | trimspace }}

@@ -1,75 +1,113 @@
 # terraform-provider-dryad
 
-Initial scaffold for a Terraform provider that manages Active Directory through remote PowerShell execution on Windows hosts.
+A Terraform provider that manages **Active Directory** objects by executing
+**PowerShell 7** on a remote Windows host over **WinRM** or **SSH**.
 
-## Current scope
+There is no LDAP client. Every operation is a PowerShell script that runs on a host with
+the `ActiveDirectory` module — normally a domain controller — and returns a single JSON
+document that the provider decodes.
 
-- Terraform Provider Plugin Framework
-- WinRM transport
-  - basic
-  - NTLM
-  - Kerberos
-- SSH transport
-  - password auth
-  - private key auth
-- `dryad_organizational_unit` resource
+## Resources
 
-## Current resource model
+| Resource | Manages |
+| --- | --- |
+| `dryad_organizational_unit` | Organizational units, creating missing parents on demand |
+| `dryad_group` | Groups, including rename and move |
+| `dryad_access_rule` | A single access control entry (ACE) on any directory object |
 
-The first resource intentionally focuses on the `dry.module.ad` OU behavior:
+## Documentation
 
-- input path is a slash-delimited path relative to the domain root
-- missing parent OUs are created on demand
-- description is reconciled on the leaf OU
-- resource ID is the OU distinguished name
+Full documentation lives in [docs/](docs/) and is published to the Terraform Registry:
 
-## Provider examples
+- [Provider configuration and authentication](docs/index.md)
+- [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
+- Resource reference under [docs/resources/](docs/resources/)
 
-### WinRM
+`docs/` is generated — edit the schema `MarkdownDescription` strings, the snippets in
+[examples/](examples/), or the page templates in [templates/](templates/), then run:
+
+```sh
+make docs
+```
+
+## Quick start
 
 ```hcl
 terraform {
   required_providers {
     dryad = {
-      source = "bjoernf73/dryad"
+      source = "henrikhalt/dryad"
     }
   }
 }
 
 provider "dryad" {
-  transport        = "winrm"
-  host             = "ad1.contoso.local"
-  port             = 5986
-  username         = "CONTOSO\\terraform"
-  password         = var.winrm_password
-  winrm_use_tls    = true
-  winrm_auth       = "kerberos"
-  winrm_kerberos_realm = "CONTOSO.LOCAL"
-  powershell_path  = "pwsh"
+  transport       = "winrm"
+  host            = "dc1.contoso.local"
+  username        = "CONTOSO\\terraform"
+  password        = var.password
+  winrm_auth      = "ntlm"
+  powershell_path = "pwsh"
 }
 
 resource "dryad_organizational_unit" "servers" {
   path        = "Contoso/Servers/Windows"
   description = "Windows server OU"
 }
-```
 
-### SSH
+resource "dryad_group" "server_admins" {
+  name  = "Server Admins"
+  path  = "Contoso/Groups"
+  scope = "DomainLocal"
+}
 
-```hcl
-provider "dryad" {
-  transport          = "ssh"
-  host               = "ad1.contoso.local"
-  port               = 22
-  username           = "terraform"
-  ssh_private_key_pem = var.ssh_private_key_pem
-  powershell_path    = "pwsh"
+resource "dryad_access_rule" "delegate_computers" {
+  target                = dryad_organizational_unit.servers.distinguished_name
+  trustee               = dryad_group.server_admins.sid
+  rights                = ["CreateChild", "DeleteChild"]
+  object_type           = "computer"
+  inherited_object_type = "organizationalUnit"
+  inheritance           = "Descendents"
 }
 ```
 
-## Notes
+## Requirements
 
-- PowerShell 7 is required on the target Windows host.
-- For WinRM, the provider currently supports basic, NTLM, and Kerberos authentication.
-- For SSH, the provider currently supports password or private key authentication.
-- a change
+- PowerShell 7 (`pwsh`) on the target host
+- The `ActiveDirectory` PowerShell module
+- WinRM or OpenSSH reachable from wherever Terraform runs
+
+## Transports
+
+| Transport | Authentication |
+| --- | --- |
+| `winrm` | `basic`, `ntlm`, `kerberos` |
+| `ssh` | password, private key |
+
+Notes that save time:
+
+- WinRM `basic` accepts **local accounts only**, so it cannot authenticate a domain
+  account against a domain controller.
+- `ntlm` over plain HTTP (5985) needs `AllowUnencrypted = true` on the WinRM service,
+  because the library applies no NTLM message encryption. HTTPS on 5986 avoids this.
+- `kerberos` needs the target FQDN, not an IP address, because the SPN is derived from
+  the host name.
+
+## Development
+
+```sh
+make build       # go build ./...
+make vet
+make test
+make docs        # regenerate docs/ (needs the terraform CLI)
+```
+
+End-to-end tests live in [test/e2e/](test/e2e/) and run against a real domain controller
+from CI over both transports. See [.gitlab-ci.yml](.gitlab-ci.yml).
+
+A manual transport check, for when CI is too slow a feedback loop:
+
+```sh
+DRYAD_HOST=10.0.13.6 DRYAD_USERNAME='CONTOSO\Administrator' DRYAD_PASSWORD=... \
+  go test ./internal/transport -run TestWinRMSmoke -v
+```

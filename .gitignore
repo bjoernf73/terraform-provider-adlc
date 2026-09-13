@@ -8,6 +8,16 @@ bin/
 dist/
 modules-dev/
 /pkg/
+
+# Local provider mirror and CLI config produced by `make mirror`.
+.provider-mirror/
+.terraformrc.local
+
+# The lock file records checksums for the platform that generated it, and the
+# dev provider is installed from a local mirror, so it must not be committed.
+.terraform/
+.terraform.lock.hcl
+
 website/.vagrant
 website/.bundle
 website/build

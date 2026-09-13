@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/config"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
 )
 
 // Manual connectivity check. Set DRYAD_HOST, DRYAD_USERNAME and DRYAD_PASSWORD to run it:

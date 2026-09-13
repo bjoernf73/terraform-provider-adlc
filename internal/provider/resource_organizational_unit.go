@@ -11,8 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/ad"
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
 )
 
 var (

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/config"
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/powershell"
-	"github.com/bjoernf73/dry.module.ad/tf/terraform-provider-dryad/internal/transport"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/powershell"
+	"github.com/henrikhalt/terraform-provider-dryad/internal/transport"
 )
 
 type Client struct {
