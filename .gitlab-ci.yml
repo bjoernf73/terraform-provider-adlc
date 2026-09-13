@@ -108,14 +108,14 @@ e2e:ssh:
   extends: .e2e_template
   variables:
     TF_VAR_transport: "ssh"
-    TF_VAR_username: "$DRYAD_SSH_USERNAME"
-    TF_VAR_password: "$DRYAD_SSH_PASSWORD"
+    TF_VAR_username: "$DRYAD_USERNAME"
+    TF_VAR_password: "$DRYAD_PASSWORD"
     TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-ssh"
   rules:
     # Requires DRYAD_SSH_USERNAME and DRYAD_SSH_PASSWORD (masked) in addition to DRYAD_HOST.
     - if: '$DRYAD_HOST == null || $DRYAD_HOST == ""'
       when: never
-    - if: '$DRYAD_SSH_PASSWORD == null || $DRYAD_SSH_PASSWORD == ""'
+    - if: '$DRYAD_PASSWORD == null || $DRYAD_PASSWORD == ""'
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - when: manual
