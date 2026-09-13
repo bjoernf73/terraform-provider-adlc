@@ -27,6 +27,7 @@ mirror:
 	printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s"\n    include = ["registry.terraform.io/henrikhalt/dryad"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/henrikhalt/dryad"]\n  }\n}\n' "$(MIRROR_DIR)" > "$(TFRC)"
 
 validate: mirror
+	rm -f test/e2e/.terraform.lock.hcl
 	cd test/e2e && TF_CLI_CONFIG_FILE=$(TFRC) terraform init -upgrade -no-color >/dev/null
 	cd test/e2e && TF_CLI_CONFIG_FILE=$(TFRC) terraform validate -no-color
 	terraform fmt -check -recursive test examples

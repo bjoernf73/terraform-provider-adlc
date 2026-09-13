@@ -151,12 +151,121 @@ resource "dryad_access_rule" "write_description" {
 | --- | --- | --- |
 | Schema class | `computer`, `user`, `organizationalUnit` | `lDAPDisplayName` in the schema NC |
 | Attribute | `description`, `unicodePwd` | `lDAPDisplayName` in the schema NC |
-| Property set | `User-Account-Restrictions` | `displayName` of a `controlAccessRight` |
+| Property set | `Personal Information` | `displayName` of a `controlAccessRight` |
 | Extended right | `Reset Password`, `Send As` | `displayName` of a `controlAccessRight` |
+| Validated write | `Validated write to DNS host name` | `displayName` of a `controlAccessRight` |
 | GUID | `bf967a86-0de6-11d0-a285-00aa003049e2` | used as-is |
 | `All` | `All` | the empty GUID |
 
 Lookups are targeted LDAP queries, not a full schema enumeration.
+
+## Extended rights
+
+Most `ActiveDirectoryRights` values map to a fixed permission bit. `ExtendedRight` does
+not: it is a single bit that means "the operation named by `object_type`". Which
+operations exist is defined by objects in
+`CN=Extended-Rights,CN=Configuration,DC=…`, so the available set depends on the forest
+— installing Exchange or extending the schema adds more.
+
+```hcl
+resource "dryad_access_rule" "reset_passwords" {
+  target                = dryad_organizational_unit.staff.distinguished_name
+  trustee               = "Helpdesk"
+  rights                = ["ExtendedRight"]
+  object_type           = "Reset Password" # which extended right
+  inheritance           = "Descendents"
+  inherited_object_type = "user" # on which class of object
+}
+```
+
+~> **`ExtendedRight` without `object_type` grants *every* extended right** on the target,
+including password resets and directory replication. Always name the specific right
+unless that is genuinely what you intend.
+
+### Commonly used extended rights
+
+These exist in every Active Directory forest:
+
+| `object_type` | Grants |
+| --- | --- |
+| `Reset Password` | Set a password without knowing the current one |
+| `Change Password` | Change a password when the current one is supplied |
+| `Unexpire Password` | Clear an expired password condition |
+| `Enable Per User Reversibly Encrypted Password` | Toggle reversible encryption |
+| `Allowed to Authenticate` | Authenticate against a computer in another forest |
+| `Send As` / `Receive As` | Send or receive mail as the object |
+| `Replicating Directory Changes` | Read replication data, as used by Entra Connect |
+| `Replicating Directory Changes All` | Read replication data including secrets |
+| `Manage Replication Topology` | Modify replication topology |
+| `Reanimate Tombstones` | Restore deleted objects |
+| `Update Password Not Required Bit` | Toggle `PASSWD_NOTREQD` |
+
+### Three kinds of control access right
+
+`CN=Extended-Rights` holds three different things, distinguished by the `validAccesses`
+attribute. All three are named through `object_type`, but each pairs with a different
+entry in `rights`:
+
+| `validAccesses` | Kind | Use with |
+| --- | --- | --- |
+| `256` | Extended right | `rights = ["ExtendedRight"]` |
+| `48` | Property set | `rights = ["ReadProperty"]` and/or `["WriteProperty"]` |
+| `8` | Validated write | `rights = ["Self"]` |
+
+A **property set** is a named group of attributes, which is how you delegate a coherent
+set of fields without listing each one:
+
+```hcl
+resource "dryad_access_rule" "edit_personal_information" {
+  target                = dryad_organizational_unit.staff.distinguished_name
+  trustee               = "Helpdesk"
+  rights                = ["ReadProperty", "WriteProperty"]
+  object_type           = "Personal Information" # ~40 attributes: address, phone, ...
+  inheritance           = "Descendents"
+  inherited_object_type = "user"
+}
+```
+
+Useful property sets: `Personal Information`, `Public Information`,
+`General Information`, `Web Information`, `Membership`, `Account Restrictions`,
+`Logon Information`, `Terminal Server License Server`.
+
+A **validated write** permits a write that Active Directory itself validates, rather
+than an unrestricted one:
+
+```hcl
+resource "dryad_access_rule" "register_own_spn" {
+  target                = dryad_organizational_unit.servers.distinguished_name
+  trustee               = "Server Admins"
+  rights                = ["Self"]
+  object_type           = "Validated write to service principal name"
+  inheritance           = "Descendents"
+  inherited_object_type = "computer"
+}
+```
+
+### Discovering what a forest offers
+
+Because the set is forest-specific, list it rather than guessing. Run against a domain
+controller:
+
+```powershell
+Get-ADObject -SearchBase (Get-ADRootDSE).ConfigurationNamingContext `
+    -LDAPFilter '(objectClass=controlAccessRight)' `
+    -Properties displayName, rightsGuid, validAccesses |
+  Sort-Object displayName |
+  Format-Table displayName, validAccesses, rightsGuid
+```
+
+Filter to one kind with `(&(objectClass=controlAccessRight)(validAccesses=256))` for
+extended rights, `48` for property sets, or `8` for validated writes.
+
+The `displayName` is what `object_type` expects. If a name is ambiguous or contains
+characters awkward in HCL, the `rightsGuid` can be used directly:
+
+```hcl
+object_type = "00299570-246d-11d0-a768-00aa006e0529" # Reset Password
+```
 
 ## Trustees
 
@@ -242,11 +351,11 @@ Common `ActiveDirectoryRights` values:
 | `GenericRead` | Read permissions, properties and object list |
 | `GenericWrite` | Write properties and validated writes |
 | `CreateChild` / `DeleteChild` | Create or delete child objects of `object_type` |
-| `ReadProperty` / `WriteProperty` | Read or write the attribute named by `object_type` |
+| `ReadProperty` / `WriteProperty` | Read or write the attribute or property set named by `object_type` |
 | `DeleteTree` | Delete an object and its whole subtree |
-| `ExtendedRight` | Exercise the extended right named by `object_type` |
+| `ExtendedRight` | Exercise the extended right named by `object_type` — see [Extended rights](#extended-rights) |
 | `ReadControl` / `WriteDacl` / `WriteOwner` | Read or modify the security descriptor |
-| `Self` | Validated write |
+| `Self` | Perform the validated write named by `object_type` |
 
 -> Some combinations are rendered by .NET under a composite name — configuring
 `ReadControl`, `ListChildren`, `ReadProperty` and `ListObject` reads back as

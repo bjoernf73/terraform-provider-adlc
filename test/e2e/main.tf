@@ -22,6 +22,8 @@ provider "dryad" {
   timeout_seconds = var.timeout_seconds
 }
 
+data "dryad_domain" "current" {}
+
 resource "dryad_organizational_unit" "smoke" {
   path           = var.ou_path
   description    = var.ou_description
@@ -78,4 +80,28 @@ output "access_rule_id" {
 
 output "access_rule_trustee_sid" {
   value = dryad_access_rule.smoke.trustee_sid
+}
+
+# A second group, nested into the first, exercises group membership.
+resource "dryad_group" "smoke_member" {
+  name  = "${var.group_name}-member"
+  path  = dryad_organizational_unit.smoke.path
+  scope = "Global"
+}
+
+resource "dryad_group_member" "smoke" {
+  group  = dryad_group.smoke.id
+  member = dryad_group.smoke_member.id
+}
+
+output "group_member_id" {
+  value = dryad_group_member.smoke.id
+}
+
+output "domain_dn" {
+  value = data.dryad_domain.current.distinguished_name
+}
+
+output "domain_netbios_name" {
+  value = data.dryad_domain.current.netbios_name
 }

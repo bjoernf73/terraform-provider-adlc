@@ -1,43 +1,18 @@
 # Access rule helpers. Requires common.ps1.
 
-function ConvertTo-LDAPFilterValue([string]$Value) {
-    # RFC 4515 escaping: these characters are otherwise filter syntax.
-    $builder = New-Object System.Text.StringBuilder
-    foreach ($char in $Value.ToCharArray()) {
-        switch ($char) {
-            '\' { [void]$builder.Append('\5c') }
-            '*' { [void]$builder.Append('\2a') }
-            '(' { [void]$builder.Append('\28') }
-            ')' { [void]$builder.Append('\29') }
-            "`0" { [void]$builder.Append('\00') }
-            default { [void]$builder.Append($char) }
-        }
-    }
-
-    return $builder.ToString()
-}
-
 function Resolve-TrusteeSid([string]$Trustee) {
-    $serverParams = Get-ServerParams
-
     if ($Trustee -match '^S-\d-') {
         return $Trustee
     }
 
-    if ($Trustee -match '^(CN|OU)=') {
-        $object = Get-ADObject -Identity $Trustee -Properties objectSid @serverParams -ErrorAction Stop
-        return $object.objectSid.Value
+    try {
+        $principal = Resolve-ADPrincipal $Trustee
+        if ($null -ne $principal.objectSid) {
+            return $principal.objectSid.Value
+        }
     }
-
-    $samAccountName = $Trustee
-    if ($samAccountName.Contains('\')) {
-        $samAccountName = $samAccountName.Split('\')[-1]
-    }
-
-    $escaped = ConvertTo-LDAPFilterValue $samAccountName
-    $found = @(Get-ADObject -LDAPFilter "(sAMAccountName=$escaped)" -Properties objectSid @serverParams -ErrorAction Stop)
-    if ($found.Count -gt 0 -and $null -ne $found[0].objectSid) {
-        return $found[0].objectSid.Value
+    catch {
+        # Falls through to the well-known principal lookup below.
     }
 
     # Well-known principals such as 'Authenticated Users' are not directory objects.

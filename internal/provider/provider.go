@@ -166,12 +166,15 @@ func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource 
 	return []func() resource.Resource{
 		NewOrganizationalUnitResource,
 		NewGroupResource,
+		NewGroupMemberResource,
 		NewAccessRuleResource,
 	}
 }
 
 func (p *dryadProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{
+		NewDomainDataSource,
+	}
 }
 
 func expandProviderConfig(data dryadProviderModel) (config.Config, diag.Diagnostics) {
