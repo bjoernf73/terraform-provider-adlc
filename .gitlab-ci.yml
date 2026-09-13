@@ -94,6 +94,7 @@ e2e:winrm:
     TF_VAR_username: "$DRYAD_USERNAME"
     TF_VAR_password: "$DRYAD_PASSWORD"
     TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-winrm"
+    TF_VAR_group_name: "dryad-ci-$CI_PIPELINE_ID-winrm"
   rules:
     # Required CI/CD variables: DRYAD_HOST, DRYAD_USERNAME, DRYAD_PASSWORD (masked).
     # Optional overrides are set directly as TF_VAR_port / TF_VAR_winrm_auth /
@@ -110,8 +111,7 @@ e2e:ssh:
     TF_VAR_transport: "ssh"
     TF_VAR_username: "$DRYAD_USERNAME"
     TF_VAR_password: "$DRYAD_PASSWORD"
-    TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-ssh"
-  rules:
+    TF_VAR_ou_path: "TerraformCI/pipeline-$CI_PIPELINE_ID-ssh"    TF_VAR_group_name: "dryad-ci-$CI_PIPELINE_ID-ssh"  rules:
     # Requires DRYAD_SSH_USERNAME and DRYAD_SSH_PASSWORD (masked) in addition to DRYAD_HOST.
     - if: '$DRYAD_HOST == null || $DRYAD_HOST == ""'
       when: never

@@ -1,5 +1,11 @@
 # Helpers shared by every AD object type. Prefixed ahead of each operation script.
 $ErrorActionPreference = 'Stop'
+
+# Keep ANSI escapes out of stderr so provider diagnostics stay readable.
+if ($null -ne $PSStyle) {
+    $PSStyle.OutputRendering = 'PlainText'
+}
+
 Import-Module ActiveDirectory -ErrorAction Stop
 
 function Get-ServerParams {
