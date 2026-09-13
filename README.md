@@ -29,6 +29,7 @@ Full documentation lives in [docs/](docs/) and is published to the Terraform Reg
 - [Provider configuration and authentication](docs/index.md)
 - [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
+- [Dependencies and ordering](docs/guides/dependencies.md) — references, `depends_on` and cycles
 - [Repeating object patterns across systems](docs/guides/repeating-patterns.md) — `for_each` and modules
 - Resource reference under [docs/resources/](docs/resources/)
 
