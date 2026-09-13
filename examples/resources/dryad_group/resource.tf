@@ -7,9 +7,9 @@ resource "dryad_group" "server_admins" {
   scope            = "Global"
 }
 
-# path also accepts a full container DN, for containers that are not OUs.
+# path also accepts a DN relative to the domain root, for containers that are not OUs.
 resource "dryad_group" "legacy_readers" {
   name  = "Legacy Readers"
-  path  = "CN=Users,DC=contoso,DC=local"
+  path  = "CN=Users"
   scope = "DomainLocal"
 }

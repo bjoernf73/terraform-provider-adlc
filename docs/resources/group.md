@@ -22,10 +22,10 @@ resource "dryad_group" "server_admins" {
   scope            = "Global"
 }
 
-# path also accepts a full container DN, for containers that are not OUs.
+# path also accepts a DN relative to the domain root, for containers that are not OUs.
 resource "dryad_group" "legacy_readers" {
   name  = "Legacy Readers"
-  path  = "CN=Users,DC=contoso,DC=local"
+  path  = "CN=Users"
   scope = "DomainLocal"
 }
 ```
@@ -36,7 +36,7 @@ resource "dryad_group" "legacy_readers" {
 ### Required
 
 - `name` (String) Group name (the `CN`). Changing this renames the group in place.
-- `path` (String) Container holding the group. Either a slash-delimited OU path relative to the domain root (`Contoso/Groups`) or a full container DN (`CN=Users,DC=contoso,DC=local`). Changing this moves the group.
+- `path` (String) Container holding the group. Accepts a slash-delimited OU path relative to the domain root (`Contoso/Groups`), a distinguished name relative to the domain root (`CN=Users`), or a full distinguished name. Changing this moves the group.
 
 ### Optional
 

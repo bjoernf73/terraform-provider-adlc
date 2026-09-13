@@ -38,6 +38,7 @@ type accessRuleResource struct {
 type accessRuleResourceModel struct {
 	ID                      types.String `tfsdk:"id"`
 	Target                  types.String `tfsdk:"target"`
+	TargetDN                types.String `tfsdk:"target_dn"`
 	Trustee                 types.String `tfsdk:"trustee"`
 	Rights                  types.Set    `tfsdk:"rights"`
 	Access                  types.String `tfsdk:"access"`
@@ -69,9 +70,11 @@ func (r *accessRuleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				},
 			},
 			"target": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "Distinguished name of the object the ACE is applied to. The object does not need to be managed by Terraform.",
-				PlanModifiers:       replace,
+				Required: true,
+				MarkdownDescription: "Object the ACE is applied to. Accepts a slash-delimited OU path relative to the " +
+					"domain root (`Contoso/Servers`), a distinguished name relative to the domain root " +
+					"(`CN=Computers`), or a full distinguished name. The object does not need to be managed by Terraform.",
+				PlanModifiers: replace,
 			},
 			"trustee": schema.StringAttribute{
 				Required: true,
@@ -116,6 +119,13 @@ func (r *accessRuleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"trustee_sid": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Resolved SID of the trustee.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"target_dn": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Resolved distinguished name of `target`.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -281,6 +291,7 @@ func accessRuleInput(ctx context.Context, model accessRuleResourceModel) (ad.Acc
 // because .NET renders some flag combinations under a composite name.
 func applyAccessRuleResult(model accessRuleResourceModel, rule *ad.AccessRule) accessRuleResourceModel {
 	model.ID = types.StringValue(accessRuleID(rule))
+	model.TargetDN = types.StringValue(rule.TargetDN)
 	model.TrusteeSID = types.StringValue(rule.TrusteeSID)
 	model.ObjectTypeGUID = types.StringValue(rule.ObjectTypeGUID)
 	model.InheritedObjectTypeGUID = types.StringValue(rule.InheritedObjectTypeGUID)
@@ -299,7 +310,7 @@ func applyAccessRuleResult(model accessRuleResourceModel, rule *ad.AccessRule) a
 
 func accessRuleID(rule *ad.AccessRule) string {
 	return strings.Join([]string{
-		rule.Target,
+		rule.TargetDN,
 		rule.TrusteeSID,
 		rule.Access,
 		rule.ObjectTypeGUID,

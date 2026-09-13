@@ -105,3 +105,16 @@ output "domain_dn" {
 output "domain_netbios_name" {
   value = data.dryad_domain.current.netbios_name
 }
+
+# A relative DN target: the well-known Computers container is a CN, not an OU.
+resource "dryad_access_rule" "smoke_container" {
+  target      = "CN=Computers"
+  trustee     = dryad_group.smoke.sid
+  rights      = ["ReadProperty"]
+  object_type = "All"
+  inheritance = "Descendents"
+}
+
+output "access_rule_container_target_dn" {
+  value = dryad_access_rule.smoke_container.target_dn
+}

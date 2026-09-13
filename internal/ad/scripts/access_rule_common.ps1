@@ -72,7 +72,7 @@ function Get-AccessRuleContext {
     }
 
     return [pscustomobject]@{
-        TargetDN                = [string]$payload.target
+        TargetDN                = Convert-PathToDN ([string]$payload.target) (Get-DomainDN)
         Sid                     = Resolve-TrusteeSid ([string]$payload.trustee)
         Access                  = [string]$payload.access
         ObjectTypeGuid          = Resolve-ADGuid ([string]$payload.object_type)
@@ -156,7 +156,7 @@ function Get-AccessRuleResult($Context, $Ace) {
 
     return [pscustomobject]@{
         exists                     = $true
-        target                     = $Context.TargetDN
+        target_dn                  = $Context.TargetDN
         trustee_sid                = $Context.Sid
         access                     = [string]$Ace.AccessControlType
         rights                     = @($Ace.ActiveDirectoryRights.ToString() -split ',\s*')

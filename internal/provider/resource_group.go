@@ -68,8 +68,10 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				MarkdownDescription: "Pre-Windows 2000 group name. Defaults to `name`.",
 			},
 			"path": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "Container holding the group. Either a slash-delimited OU path relative to the domain root (`Contoso/Groups`) or a full container DN (`CN=Users,DC=contoso,DC=local`). Changing this moves the group.",
+				Required: true,
+				MarkdownDescription: "Container holding the group. Accepts a slash-delimited OU path relative to the " +
+					"domain root (`Contoso/Groups`), a distinguished name relative to the domain root (`CN=Users`), " +
+					"or a full distinguished name. Changing this moves the group.",
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
@@ -135,7 +137,7 @@ func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, groupState(group))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, groupState(plan, group))...)
 }
 
 func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -145,7 +147,7 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	group, err := ad.ReadGroup(ctx, r.client, state.ID.ValueString())
+	group, err := ad.ReadGroup(ctx, r.client, state.ID.ValueString(), state.Path.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read group", err.Error())
 		return
@@ -156,7 +158,7 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, groupState(group))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, groupState(state, group))...)
 }
 
 func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -175,7 +177,7 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, groupState(group))...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, groupState(plan, group))...)
 }
 
 func (r *groupResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -210,12 +212,19 @@ func groupInput(model groupResourceModel) ad.GroupInput {
 	}
 }
 
-func groupState(group *ad.Group) groupResourceModel {
+// groupState keeps the configured path when it resolves to the same container, because
+// a slash path and a distinguished name can denote the same place.
+func groupState(model groupResourceModel, group *ad.Group) groupResourceModel {
+	path := types.StringValue(group.Path)
+	if group.PathMatch && !model.Path.IsNull() && !model.Path.IsUnknown() {
+		path = model.Path
+	}
+
 	return groupResourceModel{
 		ID:                types.StringValue(group.GUID),
 		Name:              types.StringValue(group.Name),
 		SamAccountName:    types.StringValue(group.SamAccountName),
-		Path:              types.StringValue(group.Path),
+		Path:              path,
 		Description:       stringPointerToTerraform(group.Description),
 		Category:          types.StringValue(group.Category),
 		Scope:             types.StringValue(group.Scope),

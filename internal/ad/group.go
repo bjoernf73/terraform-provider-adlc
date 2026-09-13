@@ -22,6 +22,7 @@ type Group struct {
 	Category          string  `json:"category"`
 	Scope             string  `json:"scope"`
 	Path              string  `json:"path"`
+	PathMatch         bool    `json:"path_match"`
 	ContainerDN       string  `json:"container_dn"`
 	DistinguishedName string  `json:"distinguished_name"`
 	GUID              string  `json:"guid"`
@@ -64,9 +65,10 @@ func EnsureGroup(ctx context.Context, c *client.Client, input GroupInput) (*Grou
 	return &result, nil
 }
 
-func ReadGroup(ctx context.Context, c *client.Client, guid string) (*Group, error) {
+func ReadGroup(ctx context.Context, c *client.Client, guid string, path string) (*Group, error) {
 	script, err := buildScript(c, map[string]any{
 		"guid": guid,
+		"path": path,
 	}, commonScript, groupCommon, groupRead)
 	if err != nil {
 		return nil, err

@@ -16,7 +16,7 @@ const (
 
 type AccessRule struct {
 	Exists                  bool     `json:"exists"`
-	Target                  string   `json:"target"`
+	TargetDN                string   `json:"target_dn"`
 	TrusteeSID              string   `json:"trustee_sid"`
 	Access                  string   `json:"access"`
 	Rights                  []string `json:"rights"`

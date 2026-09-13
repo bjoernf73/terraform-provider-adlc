@@ -19,7 +19,7 @@ combined into a single entry using the flags enum, so this creates **one** ACE, 
 
 ```hcl
 resource "dryad_access_rule" "example" {
-  target  = "OU=Servers,DC=contoso,DC=local"
+  target  = "Contoso/Servers"
   trustee = "Server Admins"
   rights  = ["CreateChild", "DeleteChild"]
 }
@@ -28,6 +28,58 @@ resource "dryad_access_rule" "example" {
 An ACE is identified by everything except its rights: the target, the trustee SID, the
 access type, the object type GUIDs and the inheritance flags. Changing any of those
 replaces the resource; changing only `rights` updates it in place with a single write.
+
+## Naming the target
+
+`target` accepts three forms, so containers that are not organizational units are
+reachable without spelling out the domain:
+
+| Form | Example | Resolves to |
+| --- | --- | --- |
+| Slash path | `Contoso/Servers/Windows` | `OU=Windows,OU=Servers,OU=Contoso,DC=…` |
+| Relative DN | `CN=Computers` | `CN=Computers,DC=…` |
+| Relative DN, nested | `CN=Public Key Services,CN=Services,CN=Configuration` | appended with the domain DN |
+| Full DN | `OU=Servers,DC=contoso,DC=local` | used unchanged |
+| Empty | `""` | the domain root |
+
+Slash segments default to `OU=`, but a segment may carry its own prefix when a branch
+mixes containers and organizational units:
+
+```hcl
+target = "Contoso/CN=LegacyContainer"
+```
+
+The resolved value is published as `target_dn`.
+
+```hcl
+# The well-known Computers container, which is a CN and not an OU.
+resource "dryad_access_rule" "join_default_computers" {
+  target      = "CN=Computers"
+  trustee     = "Workstation Admins"
+  rights      = ["CreateChild", "DeleteChild"]
+  object_type = "computer"
+}
+
+# The PKI configuration container.
+resource "dryad_access_rule" "manage_pki" {
+  target      = "CN=Public Key Services,CN=Services,CN=Configuration"
+  trustee     = "PKI Admins"
+  rights      = ["GenericAll"]
+  inheritance = "All"
+}
+
+# The domain root.
+resource "dryad_access_rule" "replicate_directory_changes" {
+  target      = ""
+  trustee     = "Entra Connect"
+  rights      = ["ExtendedRight"]
+  object_type = "Replicating Directory Changes"
+}
+```
+
+~> The relative form appends the **domain** DN. In a multi-domain forest the configuration
+naming context belongs to the forest root, so `CN=…,CN=Configuration` only resolves
+correctly from the forest root domain. Use a full DN elsewhere.
 
 ## The six constructors
 

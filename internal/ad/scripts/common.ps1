@@ -21,21 +21,39 @@ function Get-DomainDN {
     return (Get-ADDomain @serverParams -ErrorAction Stop).DistinguishedName
 }
 
+# Accepts a slash-delimited OU path relative to the domain root, a distinguished name
+# relative to the domain root, or a full distinguished name. Slash segments default to
+# OU= but may carry their own RDN prefix.
 function Convert-PathToDN([string]$Path, [string]$DomainDN) {
-    # A path already containing the domain DN is treated as a literal container DN,
-    # which allows containers such as CN=Users that are not organizational units.
-    if ($Path -match [regex]::Escape($DomainDN) + '$') {
-        return $Path
+    $trimmed = ([string]$Path).Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
+        return $DomainDN
     }
 
-    $segments = @($Path -split '/' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+    if ($trimmed -match ([regex]::Escape($DomainDN) + '\s*$')) {
+        return $trimmed
+    }
+
+    if ($trimmed -match '^\s*DC=') {
+        return $trimmed
+    }
+
+    # A relative DN such as 'CN=Computers' or 'CN=Services,CN=Configuration'.
+    if (($trimmed -notmatch '/') -and ($trimmed -match '^[A-Za-z]+=')) {
+        return $trimmed.TrimEnd(',') + ',' + $DomainDN
+    }
+
+    $segments = @($trimmed -split '/' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
     if ($segments.Count -eq 0) {
         return $DomainDN
     }
 
     [array]::Reverse($segments)
-    $ouParts = $segments | ForEach-Object { 'OU=' + $_ }
-    return ($ouParts -join ',') + ',' + $DomainDN
+    $parts = $segments | ForEach-Object {
+        if ($_ -match '^[A-Za-z]+=') { $_ } else { 'OU=' + $_ }
+    }
+
+    return ($parts -join ',') + ',' + $DomainDN
 }
 
 function Convert-DNToPath([string]$DistinguishedName, [string]$DomainDN) {

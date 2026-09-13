@@ -1,5 +1,14 @@
 # Group helpers. Requires common.ps1.
 function Get-GroupResult($Group, [string]$DomainDN) {
+    $containerDN = Get-ParentDN $Group.DistinguishedName
+
+    # Lets the provider keep the configured spelling of path when it resolves to the
+    # same container; a DN and a slash path can denote the same place.
+    $pathMatch = $false
+    if ($null -ne $payload.path) {
+        $pathMatch = ((Convert-PathToDN ([string]$payload.path) $DomainDN) -eq $containerDN)
+    }
+
     return [pscustomobject]@{
         exists             = $true
         name               = $Group.Name
@@ -7,8 +16,9 @@ function Get-GroupResult($Group, [string]$DomainDN) {
         description        = $Group.Description
         category           = [string]$Group.GroupCategory
         scope              = [string]$Group.GroupScope
-        path               = Convert-DNToPath (Get-ParentDN $Group.DistinguishedName) $DomainDN
-        container_dn       = Get-ParentDN $Group.DistinguishedName
+        path               = Convert-DNToPath $containerDN $DomainDN
+        path_match         = $pathMatch
+        container_dn       = $containerDN
         distinguished_name = $Group.DistinguishedName
         guid               = [string]$Group.ObjectGUID
         sid                = [string]$Group.SID

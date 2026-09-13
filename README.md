@@ -27,7 +27,9 @@ document that the provider decodes.
 Full documentation lives in [docs/](docs/) and is published to the Terraform Registry:
 
 - [Provider configuration and authentication](docs/index.md)
+- [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
+- [Repeating object patterns across systems](docs/guides/repeating-patterns.md) — `for_each` and modules
 - Resource reference under [docs/resources/](docs/resources/)
 
 `docs/` is generated — edit the schema `MarkdownDescription` strings, the snippets in
