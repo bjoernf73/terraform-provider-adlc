@@ -12,7 +12,9 @@ import (
 )
 
 type winrmRunner struct {
-	client *winrm.Client
+	client   *winrm.Client
+	endpoint string
+	auth     string
 }
 
 func NewWinRMRunner(cfg config.Config) (Runner, error) {
@@ -24,10 +26,11 @@ func NewWinRMRunner(cfg config.Config) (Runner, error) {
 		nil,
 		nil,
 		nil,
-		0,
+		cfg.Timeout,
 	)
 
-	params := winrm.DefaultParameters
+	// DefaultParameters is a package-level pointer; copy it before mutating.
+	params := *winrm.DefaultParameters
 	switch strings.ToLower(cfg.WinRMAuth) {
 	case "", "basic":
 	case "ntlm":
@@ -62,12 +65,26 @@ func NewWinRMRunner(cfg config.Config) (Runner, error) {
 		return nil, fmt.Errorf("unsupported WinRM auth %q", cfg.WinRMAuth)
 	}
 
-	client, err := winrm.NewClientWithParameters(endpoint, cfg.Username, cfg.Password, params)
+	client, err := winrm.NewClientWithParameters(endpoint, cfg.Username, cfg.Password, &params)
 	if err != nil {
 		return nil, fmt.Errorf("creating WinRM client: %w", err)
 	}
 
-	return &winrmRunner{client: client}, nil
+	scheme := "http"
+	if cfg.WinRMUseTLS {
+		scheme = "https"
+	}
+
+	auth := strings.ToLower(cfg.WinRMAuth)
+	if auth == "" {
+		auth = "basic"
+	}
+
+	return &winrmRunner{
+		client:   client,
+		endpoint: fmt.Sprintf("%s://%s:%d/wsman", scheme, cfg.Host, cfg.Port),
+		auth:     auth,
+	}, nil
 }
 
 func (r *winrmRunner) Run(ctx context.Context, command string) (Result, error) {
@@ -82,7 +99,11 @@ func (r *winrmRunner) Run(ctx context.Context, command string) (Result, error) {
 	}
 
 	if err != nil {
-		return result, err
+		if strings.Contains(err.Error(), "401") {
+			return result, fmt.Errorf("winrm authentication failed against %s using %s auth: %w", r.endpoint, r.auth, err)
+		}
+
+		return result, fmt.Errorf("winrm request to %s failed: %w", r.endpoint, err)
 	}
 
 	return result, nil
