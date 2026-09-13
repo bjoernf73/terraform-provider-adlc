@@ -19,9 +19,10 @@ import (
 )
 
 var (
-	_ resource.Resource                = &groupResource{}
-	_ resource.ResourceWithConfigure   = &groupResource{}
-	_ resource.ResourceWithImportState = &groupResource{}
+	_ resource.Resource                   = &groupResource{}
+	_ resource.ResourceWithConfigure      = &groupResource{}
+	_ resource.ResourceWithImportState    = &groupResource{}
+	_ resource.ResourceWithValidateConfig = &groupResource{}
 )
 
 func NewGroupResource() resource.Resource {
@@ -44,6 +45,7 @@ type groupResourceModel struct {
 	Homepage          types.String `tfsdk:"homepage"`
 	ManagedBy         types.String `tfsdk:"managed_by"`
 	ManagedByDN       types.String `tfsdk:"managed_by_dn"`
+	ManagerCanUpdate  types.Bool   `tfsdk:"manager_can_update_membership"`
 	Protected         types.Bool   `tfsdk:"protected_from_accidental_deletion"`
 	Category          types.String `tfsdk:"category"`
 	Scope             types.String `tfsdk:"scope"`
@@ -112,6 +114,14 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Default:             booldefault.StaticBool(false),
 				MarkdownDescription: "Protect the group from accidental deletion. This is not a stored attribute: it adds Deny access control entries for `Everyone` on `Delete` and `DeleteTree`.",
 			},
+			"manager_can_update_membership": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+				MarkdownDescription: "Allow the `managed_by` principal to change the membership list, the **Manager can update membership list** " +
+					"checkbox in Active Directory Users and Computers. This is not a stored attribute: it adds an Allow access " +
+					"control entry granting `WriteProperty` on the `member` attribute. Requires `managed_by`.",
+			},
 			"category": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
@@ -146,6 +156,23 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				MarkdownDescription: "Resolved distinguished name of `managed_by`.",
 			},
 		},
+	}
+}
+
+func (r *groupResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config groupResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// The checkbox grants rights to the managedBy principal, so there must be one.
+	if config.ManagerCanUpdate.ValueBool() && config.ManagedBy.IsNull() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("manager_can_update_membership"),
+			"Missing managed_by",
+			"manager_can_update_membership requires managed_by to be set.",
+		)
 	}
 }
 
@@ -251,6 +278,7 @@ func groupInput(model groupResourceModel) ad.GroupInput {
 		Info:                            optionalString(model.Info),
 		Homepage:                        optionalString(model.Homepage),
 		ManagedBy:                       model.ManagedBy.ValueString(),
+		ManagerCanUpdateMembership:      model.ManagerCanUpdate.ValueBool(),
 		ProtectedFromAccidentalDeletion: model.Protected.ValueBool(),
 		Category:                        model.Category.ValueString(),
 		Scope:                           model.Scope.ValueString(),
@@ -291,6 +319,7 @@ func groupState(model groupResourceModel, group *ad.Group) groupResourceModel {
 		Homepage:          stringPointerToTerraform(group.Homepage),
 		ManagedBy:         managedBy,
 		ManagedByDN:       managedByDN,
+		ManagerCanUpdate:  types.BoolValue(group.ManagerCanUpdateMembership),
 		Protected:         types.BoolValue(group.ProtectedFromAccidentalDeletion),
 		Category:          types.StringValue(group.Category),
 		Scope:             types.StringValue(group.Scope),

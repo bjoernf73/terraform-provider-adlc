@@ -25,6 +25,8 @@ resource "dryad_group" "server_admins" {
   category         = "Security"
   scope            = "Global"
 
+  # Grants the manager WriteProperty on the member attribute.
+  manager_can_update_membership      = true
   protected_from_accidental_deletion = true
 }
 
@@ -62,6 +64,7 @@ resource "dryad_group" "legacy_readers" {
 - `info` (String) Free-form notes (`info`), shown as **Notes** in Active Directory Users and Computers.
 - `mail` (String) Email address (`mail`), used for distribution groups and mail-enabled security groups.
 - `managed_by` (String) Owner of the group (`managedBy`). Accepts a distinguished name, `objectGUID`, SID, `DOMAIN\name` or `sAMAccountName`. The resolved distinguished name is published as `managed_by_dn`.
+- `manager_can_update_membership` (Boolean) Allow the `managed_by` principal to change the membership list, the **Manager can update membership list** checkbox in Active Directory Users and Computers. This is not a stored attribute: it adds an Allow access control entry granting `WriteProperty` on the `member` attribute. Requires `managed_by`.
 - `protected_from_accidental_deletion` (Boolean) Protect the group from accidental deletion. This is not a stored attribute: it adds Deny access control entries for `Everyone` on `Delete` and `DeleteTree`.
 - `sam_account_name` (String) Pre-Windows 2000 group name. Defaults to `name`.
 - `scope` (String) Group scope: `DomainLocal`, `Global` or `Universal`.

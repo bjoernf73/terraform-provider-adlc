@@ -147,3 +147,17 @@ function Resolve-ADPrincipal([string]$Identity) {
 
     throw "no directory object found for identity '$Identity'"
 }
+
+# Security descriptors are read and written through the AD: drive.
+function Get-ADObjectAclPath([string]$DistinguishedName) {
+    if ($null -eq (Get-PSDrive -Name 'AD' -ErrorAction SilentlyContinue)) {
+        New-PSDrive -Name 'AD' -PSProvider 'ActiveDirectory' -Root '//RootDSE/' -ErrorAction Stop | Out-Null
+    }
+
+    # Pin the drive to the configured DC so ACL reads and writes hit the same replica.
+    if ($null -ne $payload.domain_controller -and -not [string]::IsNullOrWhiteSpace([string]$payload.domain_controller)) {
+        (Get-PSDrive -Name 'AD' -ErrorAction Stop).Server = [string]$payload.domain_controller
+    }
+
+    return "AD:\$DistinguishedName"
+}

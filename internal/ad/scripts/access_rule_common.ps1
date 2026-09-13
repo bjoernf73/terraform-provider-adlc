@@ -52,19 +52,6 @@ function Resolve-ADGuid([string]$Name) {
     throw "unknown object type '$Name'; expected a schema class, attribute, property set, extended right or GUID"
 }
 
-function Get-ADObjectAclPath([string]$DistinguishedName) {
-    if ($null -eq (Get-PSDrive -Name 'AD' -ErrorAction SilentlyContinue)) {
-        New-PSDrive -Name 'AD' -PSProvider 'ActiveDirectory' -Root '//RootDSE/' -ErrorAction Stop | Out-Null
-    }
-
-    # Pin the drive to the configured DC so ACL reads and writes hit the same replica.
-    if ($null -ne $payload.domain_controller -and -not [string]::IsNullOrWhiteSpace([string]$payload.domain_controller)) {
-        (Get-PSDrive -Name 'AD' -ErrorAction Stop).Server = [string]$payload.domain_controller
-    }
-
-    return "AD:\$DistinguishedName"
-}
-
 function Get-AccessRuleContext {
     $inheritance = $null
     if (-not [string]::IsNullOrWhiteSpace([string]$payload.inheritance)) {

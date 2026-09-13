@@ -10,6 +10,8 @@ resource "dryad_group" "server_admins" {
   category         = "Security"
   scope            = "Global"
 
+  # Grants the manager WriteProperty on the member attribute.
+  manager_can_update_membership      = true
   protected_from_accidental_deletion = true
 }
 

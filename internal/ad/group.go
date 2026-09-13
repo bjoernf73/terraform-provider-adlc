@@ -25,6 +25,7 @@ type Group struct {
 	Homepage                        *string `json:"homepage"`
 	ManagedBy                       string  `json:"managed_by"`
 	ManagedByMatch                  bool    `json:"managed_by_match"`
+	ManagerCanUpdateMembership      bool    `json:"manager_can_update_membership"`
 	ProtectedFromAccidentalDeletion bool    `json:"protected_from_accidental_deletion"`
 	Category                        string  `json:"category"`
 	Scope                           string  `json:"scope"`
@@ -48,6 +49,7 @@ type GroupInput struct {
 	Info                            *string
 	Homepage                        *string
 	ManagedBy                       string
+	ManagerCanUpdateMembership      bool
 	ProtectedFromAccidentalDeletion bool
 	Category                        string
 	Scope                           string
@@ -64,6 +66,7 @@ func (i GroupInput) payload() map[string]any {
 		"info":                               i.Info,
 		"homepage":                           i.Homepage,
 		"managed_by":                         strings.TrimSpace(i.ManagedBy),
+		"manager_can_update_membership":      i.ManagerCanUpdateMembership,
 		"protected_from_accidental_deletion": i.ProtectedFromAccidentalDeletion,
 		"category":                           i.Category,
 		"scope":                              i.Scope,

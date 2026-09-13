@@ -55,6 +55,7 @@ resource "dryad_group" "admins" {
   category         = "Security"
   scope            = "DomainLocal"
 
+  manager_can_update_membership      = true
   protected_from_accidental_deletion = true
 }
 

@@ -1,5 +1,98 @@
 # Group helpers. Requires common.ps1.
 
+# 'Manager can update membership list' is not an attribute: it is an Allow ACE granting
+# the managedBy principal WriteProperty on the member attribute. The GUID is fixed by the
+# base schema in every forest.
+$script:MemberAttributeGuid = [guid]'bf9679c0-0de6-11d0-a285-00aa003049e2'
+
+function Test-ManagerCanUpdateMembership([string]$GroupDN, [string]$ManagerDN) {
+    if ([string]::IsNullOrWhiteSpace($ManagerDN)) {
+        return $false
+    }
+
+    $managerSid = (Resolve-ADPrincipal $ManagerDN).objectSid.Value
+    $acl = Get-Acl -Path (Get-ADObjectAclPath $GroupDN) -ErrorAction Stop
+
+    foreach ($ace in @($acl.Access)) {
+        if (Test-MemberWriteAce $ace $managerSid) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-MemberWriteAce($Ace, [string]$Sid) {
+    if ($Ace.IsInherited -or $Ace.ObjectType -ne $script:MemberAttributeGuid) {
+        return $false
+    }
+
+    if ([string]$Ace.AccessControlType -ne 'Allow') {
+        return $false
+    }
+
+    if (-not ($Ace.ActiveDirectoryRights.ToString() -match 'WriteProperty')) {
+        return $false
+    }
+
+    $aceSid = $Ace.IdentityReference
+    if ($aceSid -isnot [System.Security.Principal.SecurityIdentifier]) {
+        $aceSid = $aceSid.Translate([System.Security.Principal.SecurityIdentifier])
+    }
+
+    return ($aceSid.Value -eq $Sid)
+}
+
+function Set-ManagerCanUpdateMembership([string]$GroupDN, [string]$ManagerDN, [bool]$Enabled, [string]$PreviousManagerDN) {
+    $aclPath = Get-ADObjectAclPath $GroupDN
+    $acl = Get-Acl -Path $aclPath -ErrorAction Stop
+    $changed = $false
+
+    # Revoke from a manager that is being replaced or cleared.
+    $staleDN = $PreviousManagerDN
+    if (-not [string]::IsNullOrWhiteSpace($staleDN) -and $staleDN -ne $ManagerDN) {
+        $staleSid = (Resolve-ADPrincipal $staleDN).objectSid.Value
+        foreach ($ace in @($acl.Access)) {
+            if (Test-MemberWriteAce $ace $staleSid) {
+                $acl.RemoveAccessRuleSpecific($ace)
+                $changed = $true
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ManagerDN)) {
+        $managerSid = (Resolve-ADPrincipal $ManagerDN).objectSid.Value
+        $present = $false
+        foreach ($ace in @($acl.Access)) {
+            if (Test-MemberWriteAce $ace $managerSid) {
+                if ($Enabled) {
+                    $present = $true
+                }
+                else {
+                    $acl.RemoveAccessRuleSpecific($ace)
+                    $changed = $true
+                }
+            }
+        }
+
+        if ($Enabled -and -not $present) {
+            $identity = [System.Security.Principal.IdentityReference]([System.Security.Principal.SecurityIdentifier]$managerSid)
+            $rule = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+                $identity,
+                [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty,
+                [System.Security.AccessControl.AccessControlType]::Allow,
+                $script:MemberAttributeGuid
+            )
+            $acl.AddAccessRule($rule)
+            $changed = $true
+        }
+    }
+
+    if ($changed) {
+        Set-Acl -Path $aclPath -AclObject $acl -ErrorAction Stop
+    }
+}
+
 # Optional single-valued string attributes, mapped from payload key to LDAP attribute.
 $script:GroupAttributeMap = @(
     @{ Key = 'description'; Attribute = 'description' }
@@ -41,6 +134,7 @@ function Get-GroupResult($Group, [string]$DomainDN) {
         homepage                           = $Group.wWWHomePage
         managed_by                         = [string]$Group.ManagedBy
         managed_by_match                   = $managedByMatch
+        manager_can_update_membership      = (Test-ManagerCanUpdateMembership $Group.DistinguishedName ([string]$Group.ManagedBy))
         protected_from_accidental_deletion = [bool]$Group.ProtectedFromAccidentalDeletion
         category                           = [string]$Group.GroupCategory
         scope                              = [string]$Group.GroupScope
@@ -69,6 +163,7 @@ function Get-GroupByIdentity([string]$Identity) {
 function Sync-GroupProperties($Group) {
     $serverParams = Get-ServerParams
     $identity = $Group.DistinguishedName
+    $previousManagerDN = [string]$Group.ManagedBy
 
     $setParams = @{}
     if ([string]$Group.SamAccountName -ne [string]$payload.sam_account_name) {
@@ -102,6 +197,7 @@ function Sync-GroupProperties($Group) {
     }
 
     $managedBy = [string]$payload.managed_by
+    $managedByDN = ''
     if ([string]::IsNullOrWhiteSpace($managedBy)) {
         if (-not [string]::IsNullOrWhiteSpace([string]$Group.ManagedBy)) {
             $clear += 'managedBy'
@@ -130,6 +226,12 @@ function Sync-GroupProperties($Group) {
     if ([bool]$Group.ProtectedFromAccidentalDeletion -ne $protected) {
         Set-ADObject -Identity $identity -ProtectedFromAccidentalDeletion $protected @serverParams -ErrorAction Stop
     }
+
+    $managerCanUpdate = $false
+    if ($null -ne $payload.manager_can_update_membership) {
+        $managerCanUpdate = [bool]$payload.manager_can_update_membership
+    }
+    Set-ManagerCanUpdateMembership $identity $managedByDN $managerCanUpdate $previousManagerDN
 
     return Get-GroupByIdentity $identity
 }
