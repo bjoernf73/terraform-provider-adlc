@@ -72,3 +72,4 @@ provider "dryad" {
 - PowerShell 7 is required on the target Windows host.
 - For WinRM, the provider currently supports basic, NTLM, and Kerberos authentication.
 - For SSH, the provider currently supports password or private key authentication.
+- a change
