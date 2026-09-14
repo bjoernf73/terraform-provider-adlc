@@ -96,6 +96,18 @@ function New-ADAccessRule($Context) {
 }
 
 # Identity of an ACE for this provider: everything except the rights themselves.
+
+# .NET can return $null instead of Guid.Empty for ObjectType/InheritedObjectType on a
+# plain ACE re-read from the server when an object ACE for the same trustee and flags
+# also exists; the two are semantically identical, so treat them the same.
+function Get-NormalizedGuid($Value) {
+    if ($null -eq $Value) {
+        return [guid]::Empty
+    }
+
+    return $Value
+}
+
 function Test-AccessRuleKey($Ace, $Context) {
     if ($Ace.IsInherited) {
         return $false
@@ -118,7 +130,7 @@ function Test-AccessRuleKey($Ace, $Context) {
     if ($null -ne $Context.ObjectTypeGuid) {
         $expectedObjectType = $Context.ObjectTypeGuid
     }
-    if ($Ace.ObjectType -ne $expectedObjectType) {
+    if ((Get-NormalizedGuid $Ace.ObjectType) -ne $expectedObjectType) {
         return $false
     }
 
@@ -126,7 +138,7 @@ function Test-AccessRuleKey($Ace, $Context) {
     if ($null -ne $Context.InheritedObjectTypeGuid) {
         $expectedInherited = $Context.InheritedObjectTypeGuid
     }
-    if ($Ace.InheritedObjectType -ne $expectedInherited) {
+    if ((Get-NormalizedGuid $Ace.InheritedObjectType) -ne $expectedInherited) {
         return $false
     }
 
@@ -182,8 +194,8 @@ function Get-AccessRuleResult($Context, $Ace) {
         # Lets the provider keep the configured spelling when the effective mask is
         # unchanged; .NET renders some flag combinations under a composite name.
         rights_match               = ($actualMask -eq $desiredMask)
-        object_type_guid           = [string]$Ace.ObjectType
-        inherited_object_type_guid = [string]$Ace.InheritedObjectType
+        object_type_guid           = [string](Get-NormalizedGuid $Ace.ObjectType)
+        inherited_object_type_guid = [string](Get-NormalizedGuid $Ace.InheritedObjectType)
         inheritance                = [string]$Ace.InheritanceType
     }
 }
