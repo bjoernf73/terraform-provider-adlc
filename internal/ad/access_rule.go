@@ -25,6 +25,9 @@ type AccessRule struct {
 	ObjectTypeGUID          string   `json:"object_type_guid"`
 	InheritedObjectTypeGUID string   `json:"inherited_object_type_guid"`
 	Inheritance             string   `json:"inheritance"`
+	// DebugACEs is a TEMPORARY diagnostic populated only when a read finds no match;
+	// remove once the matching bug behind it is confirmed fixed.
+	DebugACEs []string `json:"debug_aces,omitempty"`
 }
 
 // AccessRuleInput describes a single ACE on a directory object.

@@ -221,6 +221,16 @@ func (r *accessRuleResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	if !rule.Exists {
+		// TEMPORARY diagnostic: surfaces what is actually on the ACL when a match
+		// fails, so the mismatch can be read straight from CI output. Remove once
+		// the access rule matching bug is confirmed fixed.
+		if len(rule.DebugACEs) > 0 {
+			resp.Diagnostics.AddWarning(
+				"Access rule not found; ACEs currently on target",
+				"expected key: target="+state.Target.ValueString()+" trustee_sid="+state.TrusteeSID.ValueString()+"\n"+strings.Join(rule.DebugACEs, "\n"),
+			)
+		}
+
 		resp.State.RemoveResource(ctx)
 		return
 	}
