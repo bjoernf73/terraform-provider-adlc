@@ -130,7 +130,14 @@ function Test-AccessRuleKey($Ace, $Context) {
         return $false
     }
 
-    if ($null -ne $Context.Inheritance -and [string]$Ace.InheritanceType -ne [string]$Context.Inheritance) {
+    # Unset inheritance means the constructor without an inheritance parameter, which
+    # .NET defaults to None. Compare unconditionally, like ObjectType/InheritedObjectType
+    # above, otherwise an unset inheritance would match an ACE with ANY inheritance.
+    $expectedInheritance = 'None'
+    if ($null -ne $Context.Inheritance) {
+        $expectedInheritance = [string]$Context.Inheritance
+    }
+    if ([string]$Ace.InheritanceType -ne $expectedInheritance) {
         return $false
     }
 
