@@ -1,7 +1,7 @@
 $context = Get-AccessRuleContext
 
 try {
-    $acl = Get-Acl -Path (Get-ADObjectAclPath $context.TargetDN) -ErrorAction Stop
+    $ace = Find-AccessRuleAce $context
 }
 catch {
     if ((Test-IsIdentityNotFound $_) -or ($_.Exception -is [System.Management.Automation.ItemNotFoundException])) {
@@ -12,11 +12,9 @@ catch {
     throw
 }
 
-foreach ($ace in @($acl.Access)) {
-    if (Test-AccessRuleKey $ace $context) {
-        Get-AccessRuleResult $context $ace | ConvertTo-Json -Compress
-        return
-    }
+if ($null -eq $ace) {
+    [pscustomobject]@{ exists = $false } | ConvertTo-Json -Compress
+    return
 }
 
-[pscustomobject]@{ exists = $false } | ConvertTo-Json -Compress
+Get-AccessRuleResult $context $ace | ConvertTo-Json -Compress

@@ -144,6 +144,28 @@ function Test-AccessRuleKey($Ace, $Context) {
     return $true
 }
 
+# A Get-Acl immediately following a Set-Acl on the same object can occasionally miss the
+# just-written ACE; retry briefly rather than treating that race as "does not exist".
+function Find-AccessRuleAce($Context) {
+    $aclPath = Get-ADObjectAclPath $Context.TargetDN
+    $attempts = 3
+
+    for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+        $acl = Get-Acl -Path $aclPath -ErrorAction Stop
+        foreach ($ace in @($acl.Access)) {
+            if (Test-AccessRuleKey $ace $Context) {
+                return $ace
+            }
+        }
+
+        if ($attempt -lt $attempts) {
+            Start-Sleep -Milliseconds 750
+        }
+    }
+
+    return $null
+}
+
 function Get-AccessRuleResult($Context, $Ace) {
     $actualMask = [int]$Ace.ActiveDirectoryRights
     $desiredMask = [int][System.DirectoryServices.ActiveDirectoryRights]($Context.Rights -join ', ')

@@ -13,12 +13,10 @@ foreach ($ace in @($acl.Access)) {
 $acl.AddAccessRule((New-ADAccessRule $context))
 Set-Acl -Path $aclPath -AclObject $acl -ErrorAction Stop
 
-$acl = Get-Acl -Path $aclPath -ErrorAction Stop
-foreach ($ace in @($acl.Access)) {
-    if (Test-AccessRuleKey $ace $context) {
-        Get-AccessRuleResult $context $ace | ConvertTo-Json -Compress
-        return
-    }
+# Find-AccessRuleAce retries briefly: a read immediately after this write can race it.
+$ace = Find-AccessRuleAce $context
+if ($null -eq $ace) {
+    throw 'the access rule was written but could not be read back'
 }
 
-throw 'the access rule was written but could not be read back'
+Get-AccessRuleResult $context $ace | ConvertTo-Json -Compress
