@@ -85,14 +85,14 @@ resource "dryad_group_member" "operators_in_admins" {
 }
 
 # Constructor 1: rights on the object itself.
-resource "dryad_access_rule" "full_control" {
+resource "dryad_access_rule" "constructor1_full_control" {
   target  = dryad_organizational_unit.root.distinguished_name
   trustee = dryad_group.admins.sid
   rights  = ["GenericAll"]
 }
 
 # Constructor 2: inherited by every descendant.
-resource "dryad_access_rule" "read_all" {
+resource "dryad_access_rule" "constructor2_read_all" {
   target      = dryad_organizational_unit.root.distinguished_name
   trustee     = dryad_group.operators.sid
   rights      = ["GenericRead"]
@@ -100,7 +100,7 @@ resource "dryad_access_rule" "read_all" {
 }
 
 # Constructor 3: inherited by one class of descendant.
-resource "dryad_access_rule" "manage_users" {
+resource "dryad_access_rule" "constructor3_manage_users" {
   target                = dryad_organizational_unit.root.distinguished_name
   trustee               = dryad_group.admins.sid
   rights                = ["GenericAll"]
@@ -109,7 +109,7 @@ resource "dryad_access_rule" "manage_users" {
 }
 
 # Constructor 4: one class of child object, this object only.
-resource "dryad_access_rule" "create_computers_here" {
+resource "dryad_access_rule" "constructor4_create_computers_here" {
   target      = dryad_organizational_unit.child["Servers"].distinguished_name
   trustee     = dryad_group.operators.sid
   rights      = ["CreateChild", "DeleteChild"]
@@ -117,7 +117,7 @@ resource "dryad_access_rule" "create_computers_here" {
 }
 
 # Constructor 5: one class of child object, propagated.
-resource "dryad_access_rule" "create_computers_below" {
+resource "dryad_access_rule" "constructor5_create_computers_below" {
   target      = dryad_organizational_unit.child["Servers"].distinguished_name
   trustee     = dryad_group.admins.sid
   rights      = ["CreateChild", "DeleteChild"]
@@ -126,7 +126,7 @@ resource "dryad_access_rule" "create_computers_below" {
 }
 
 # Constructor 6: an extended right, on one class, propagated.
-resource "dryad_access_rule" "reset_passwords" {
+resource "dryad_access_rule" "constructor6_reset_passwords" {
   target                = dryad_organizational_unit.child["ServiceAccounts"].distinguished_name
   trustee               = dryad_group.admins.sid
   rights                = ["ExtendedRight"]
@@ -193,9 +193,20 @@ output "groups" {
 
 output "access_rules" {
   value = {
-    full_control         = dryad_access_rule.full_control.id
-    reset_passwords      = dryad_access_rule.reset_passwords.id
+    full_control         = dryad_access_rule.constructor1_full_control.id
+    reset_passwords      = dryad_access_rule.constructor6_reset_passwords.id
     personal_information = dryad_access_rule.personal_information.id
     computers_container  = dryad_access_rule.read_computers_container.target_dn
+  }
+}
+
+output "access_rule_constructors" {
+  value = {
+    "1_object_only"           = dryad_access_rule.constructor1_full_control.id
+    "2_all_descendants"       = dryad_access_rule.constructor2_read_all.id
+    "3_one_class_descendants" = dryad_access_rule.constructor3_manage_users.id
+    "4_one_class_here"        = dryad_access_rule.constructor4_create_computers_here.id
+    "5_one_class_propagated"  = dryad_access_rule.constructor5_create_computers_below.id
+    "6_extended_right"        = dryad_access_rule.constructor6_reset_passwords.id
   }
 }

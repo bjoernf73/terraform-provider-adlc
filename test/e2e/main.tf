@@ -71,6 +71,7 @@ output "group_managed_by_dn" {
 
 # Delegates computer management on the OU to the group stored inside it, which is the
 # dependency shape that a nested acl attribute could not express without a cycle.
+# Constructor 6: object_type + inheritance + inherited_object_type.
 resource "dryad_access_rule" "smoke" {
   target                = dryad_organizational_unit.smoke.distinguished_name
   trustee               = dryad_group.smoke.sid
@@ -114,6 +115,7 @@ output "domain_netbios_name" {
 }
 
 # A relative DN target: the well-known Computers container is a CN, not an OU.
+# Constructor 5: object_type + inheritance, no inherited_object_type.
 resource "dryad_access_rule" "smoke_container" {
   target      = "CN=Computers"
   trustee     = dryad_group.smoke.sid
@@ -124,4 +126,50 @@ resource "dryad_access_rule" "smoke_container" {
 
 output "access_rule_container_target_dn" {
   value = dryad_access_rule.smoke_container.target_dn
+}
+
+# The remaining four constructors from the access rules guide, exercised against the
+# second group so every ACE key stays unique alongside dryad_access_rule.smoke above.
+
+# Constructor 1: rights on the object itself.
+resource "dryad_access_rule" "constructor1_object_only" {
+  target  = dryad_organizational_unit.smoke.distinguished_name
+  trustee = dryad_group.smoke_member.sid
+  rights  = ["GenericRead"]
+}
+
+# Constructor 2: rights inherited by every descendant.
+resource "dryad_access_rule" "constructor2_all_descendants" {
+  target      = dryad_organizational_unit.smoke.distinguished_name
+  trustee     = dryad_group.smoke_member.sid
+  rights      = ["GenericRead"]
+  inheritance = "All"
+}
+
+# Constructor 3: rights inherited by one class of descendant.
+resource "dryad_access_rule" "constructor3_one_class_descendants" {
+  target                = dryad_organizational_unit.smoke.distinguished_name
+  trustee               = dryad_group.smoke_member.sid
+  rights                = ["GenericRead"]
+  inheritance           = "Descendents"
+  inherited_object_type = "user"
+}
+
+# Constructor 4: rights on one class of child object, this object only.
+resource "dryad_access_rule" "constructor4_one_class_here" {
+  target      = dryad_organizational_unit.smoke.distinguished_name
+  trustee     = dryad_group.smoke_member.sid
+  rights      = ["CreateChild", "DeleteChild"]
+  object_type = "computer"
+}
+
+output "access_rule_constructors" {
+  value = {
+    "1_object_only"           = dryad_access_rule.constructor1_object_only.id
+    "2_all_descendants"       = dryad_access_rule.constructor2_all_descendants.id
+    "3_one_class_descendants" = dryad_access_rule.constructor3_one_class_descendants.id
+    "4_one_class_here"        = dryad_access_rule.constructor4_one_class_here.id
+    "5_one_class_propagated"  = dryad_access_rule.smoke_container.id
+    "6_extended_right"        = dryad_access_rule.smoke.id
+  }
 }
