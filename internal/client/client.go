@@ -5,15 +5,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
 	"github.com/henrikhalt/terraform-provider-dryad/internal/powershell"
 	"github.com/henrikhalt/terraform-provider-dryad/internal/transport"
 )
 
+// transientScriptErrorAttempts covers a known-transient SSPI hiccup: AD cmdlets such as
+// Get-ADDomain occasionally fail with "A local error has occurred" under concurrent WinRM
+// load. The client mutex should prevent this from this process; retrying is a narrow
+// defense against other concurrent callers (for example two CI jobs against one DC).
+const transientScriptErrorAttempts = 3
+
+func isTransientScriptError(errText string) bool {
+	return strings.Contains(errText, "A local error has occurred")
+}
+
 type Client struct {
 	config config.Config
 	runner transport.Runner
+
+	// mu serializes every remote operation. Terraform runs independent resources
+	// concurrently (parallelism 10 by default), but concurrent WinRM shells over the
+	// same NTLM-authenticated connection are unreliable and fail with errors such as
+	// "A local error has occurred". ref/terraform-provider-ad works around the same
+	// issue with a mutex in its provider config; we do the same rather than relying
+	// on the caller to serialize calls.
+	mu sync.Mutex
 }
 
 func New(cfg config.Config) (*Client, error) {
@@ -33,6 +53,35 @@ func (c *Client) Config() config.Config {
 }
 
 func (c *Client) RunPowerShell(ctx context.Context, script string) (transport.Result, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var lastResult transport.Result
+	var lastErr error
+
+	for attempt := 1; attempt <= transientScriptErrorAttempts; attempt++ {
+		result, err := c.runPowerShellOnce(ctx, script)
+		if err == nil || !isTransientScriptError(err.Error()) {
+			return result, err
+		}
+
+		lastResult, lastErr = result, err
+
+		if attempt == transientScriptErrorAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		case <-time.After(time.Duration(attempt) * time.Second):
+		}
+	}
+
+	return lastResult, lastErr
+}
+
+func (c *Client) runPowerShellOnce(ctx context.Context, script string) (transport.Result, error) {
 	command, err := powershell.BuildCommand(c.config.PowerShellPath)
 	if err != nil {
 		return transport.Result{}, err
