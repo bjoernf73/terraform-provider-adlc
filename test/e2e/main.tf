@@ -131,10 +131,13 @@ output "access_rule_container_target_dn" {
 # The remaining four constructors from the access rules guide, exercised against the
 # second group so every ACE key stays unique alongside dryad_access_rule.smoke above.
 
-# Constructor 1: rights on the object itself.
+# Constructor 1: rights on the object itself. Uses a different trustee than constructor 2:
+# the same trustee + same rights with inheritance=All would make this ACE a strict subset
+# of that one (All already covers the object itself, not just descendants), and Windows
+# canonicalizes the redundant narrower ACE away.
 resource "dryad_access_rule" "constructor1_object_only" {
   target  = dryad_organizational_unit.smoke.distinguished_name
-  trustee = dryad_group.smoke_member.sid
+  trustee = dryad_group.smoke.sid
   rights  = ["GenericRead"]
 }
 

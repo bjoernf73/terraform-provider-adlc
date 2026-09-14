@@ -180,33 +180,6 @@ function Find-AccessRuleAce($Context) {
     return $null
 }
 
-# TEMPORARY diagnostic: dumps every non-inherited ACE on the target so a failed match can
-# be root-caused from CI logs instead of guessed at. Remove once the access rule matching
-# bug is confirmed fixed.
-function Get-AccessRuleDebugSnapshot($Context) {
-    $aclPath = Get-ADObjectAclPath $Context.TargetDN
-    $acl = Get-Acl -Path $aclPath -ErrorAction Stop
-
-    $snapshot = @()
-    foreach ($ace in @($acl.Access)) {
-        if ($ace.IsInherited) {
-            continue
-        }
-
-        $aceSid = $ace.IdentityReference
-        if ($aceSid -isnot [System.Security.Principal.SecurityIdentifier]) {
-            $aceSid = $aceSid.Translate([System.Security.Principal.SecurityIdentifier])
-        }
-
-        $objectTypeRaw = if ($null -eq $ace.ObjectType) { '<null>' } else { $ace.ObjectType.ToString() }
-        $inheritedObjectTypeRaw = if ($null -eq $ace.InheritedObjectType) { '<null>' } else { $ace.InheritedObjectType.ToString() }
-
-        $snapshot += "sid=$($aceSid.Value) type=$($ace.GetType().Name) access=$([string]$ace.AccessControlType) rights=$([int]$ace.ActiveDirectoryRights) objectType=$objectTypeRaw inheritedObjectType=$inheritedObjectTypeRaw inheritance=$([string]$ace.InheritanceType)"
-    }
-
-    return $snapshot
-}
-
 function Get-AccessRuleResult($Context, $Ace) {
     $actualMask = [int]$Ace.ActiveDirectoryRights
     $desiredMask = [int][System.DirectoryServices.ActiveDirectoryRights]($Context.Rights -join ', ')

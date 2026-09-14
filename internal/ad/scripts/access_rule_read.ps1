@@ -13,11 +13,7 @@ catch {
 }
 
 if ($null -eq $ace) {
-    # TEMPORARY diagnostic: see the note on Get-AccessRuleDebugSnapshot.
-    [pscustomobject]@{
-        exists     = $false
-        debug_aces = @(Get-AccessRuleDebugSnapshot $context)
-    } | ConvertTo-Json -Compress
+    [pscustomobject]@{ exists = $false } | ConvertTo-Json -Compress
     return
 }
 

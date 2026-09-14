@@ -342,6 +342,43 @@ resource "dryad_access_rule" "deny_everyone" {
 ~> **Deny ACEs take precedence over allow ACEs.** A `Deny` entry that matches a broad
 principal such as `Everyone` will override delegations granted elsewhere.
 
+## Redundant ACEs are canonicalized away
+
+Windows canonicalizes a security descriptor when it is written. If one ACE for a trustee
+is a strict subset of another ACE for the **same trustee and the same rights**, the
+narrower one is folded away rather than stored twice. This is standard ACL behaviour, not
+something the provider does.
+
+The case that catches people out: `inheritance = "All"` already applies to the object
+itself, not only its descendants. So granting the same trustee the same rights both with
+and without inheritance is redundant, and only the broader entry survives:
+
+```hcl
+# These two rules target the same object and the same trustee with the same rights.
+resource "dryad_access_rule" "narrow" {
+  target  = dryad_organizational_unit.servers.distinguished_name
+  trustee = dryad_group.admins.sid
+  rights  = ["GenericRead"]
+}
+
+resource "dryad_access_rule" "broad" {
+  target      = dryad_organizational_unit.servers.distinguished_name
+  trustee     = dryad_group.admins.sid
+  rights      = ["GenericRead"]
+  inheritance = "All"
+}
+```
+
+Applying this leaves only one ACE on the object. `narrow` will show as missing on the
+next `terraform plan` and be recreated, only to be folded away again on the next apply —
+a permanent, self-inflicted diff.
+
+This only happens when **trustee, rights and access type all match** — different rights,
+different trustees, or an `object_type`/`inherited_object_type` that narrows the scope to
+one class all avoid it, since none of those pairs are true subsets of each other. Give
+overlapping delegations for the same trustee a different `object_type`,
+`inherited_object_type`, or trustee to keep them distinct.
+
 ## What this resource does not touch
 
 `dryad_access_rule` is deliberately non-authoritative:
