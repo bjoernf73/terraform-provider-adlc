@@ -146,9 +146,11 @@ function Test-AccessRuleKey($Ace, $Context) {
 
 # A Get-Acl immediately following a Set-Acl on the same object can occasionally miss the
 # just-written ACE; retry briefly rather than treating that race as "does not exist".
+# Only used by the standalone Read path - Ensure builds its result from the rule it just
+# wrote instead of reading it back, which avoids this race entirely.
 function Find-AccessRuleAce($Context) {
     $aclPath = Get-ADObjectAclPath $Context.TargetDN
-    $attempts = 3
+    $attempts = 4
 
     for ($attempt = 1; $attempt -le $attempts; $attempt++) {
         $acl = Get-Acl -Path $aclPath -ErrorAction Stop
@@ -159,7 +161,7 @@ function Find-AccessRuleAce($Context) {
         }
 
         if ($attempt -lt $attempts) {
-            Start-Sleep -Milliseconds 750
+            Start-Sleep -Seconds 2
         }
     }
 

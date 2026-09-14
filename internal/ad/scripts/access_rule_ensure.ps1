@@ -10,13 +10,11 @@ foreach ($ace in @($acl.Access)) {
     }
 }
 
-$acl.AddAccessRule((New-ADAccessRule $context))
+$rule = New-ADAccessRule $context
+$acl.AddAccessRule($rule)
 Set-Acl -Path $aclPath -AclObject $acl -ErrorAction Stop
 
-# Find-AccessRuleAce retries briefly: a read immediately after this write can race it.
-$ace = Find-AccessRuleAce $context
-if ($null -eq $ace) {
-    throw 'the access rule was written but could not be read back'
-}
-
-Get-AccessRuleResult $context $ace | ConvertTo-Json -Compress
+# Built from the rule just written, not re-read from the server: a Get-Acl immediately
+# after Set-Acl on the same object can race the write and miss it, and there is nothing
+# a fresh read would tell us that we do not already know about our own write.
+Get-AccessRuleResult $context $rule | ConvertTo-Json -Compress
