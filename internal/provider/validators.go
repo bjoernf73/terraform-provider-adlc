@@ -43,3 +43,41 @@ func (v oneOfValidator) ValidateString(ctx context.Context, req validator.String
 }
 
 var _ validator.String = oneOfValidator{}
+
+// maxLength validates that a string attribute is at most n characters. Used for
+// sAMAccountName, which AD hard-limits to 20 characters and otherwise fails with the
+// unhelpful "The name provided is not a properly formed account name."
+type maxLengthValidator struct {
+	max int
+}
+
+func maxLength(max int) validator.String {
+	return maxLengthValidator{max: max}
+}
+
+func (v maxLengthValidator) Description(_ context.Context) string {
+	return fmt.Sprintf("value must be at most %d characters", v.max)
+}
+
+func (v maxLengthValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v maxLengthValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	value := req.ConfigValue.ValueString()
+	if len(value) <= v.max {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		req.Path,
+		"Invalid attribute value",
+		fmt.Sprintf("Attribute %s %s, got %d characters: %q", req.Path, v.Description(ctx), len(value), value),
+	)
+}
+
+var _ validator.String = maxLengthValidator{}

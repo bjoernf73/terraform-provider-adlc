@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
@@ -108,7 +109,10 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"sam_account_name": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Pre-Windows 2000 logon name. Unique domain-wide.",
+				MarkdownDescription: "Pre-Windows 2000 logon name. Unique domain-wide, maximum 20 characters.",
+				Validators: []validator.String{
+					maxLength(20),
+				},
 			},
 			"user_principal_name": schema.StringAttribute{
 				Required:            true,

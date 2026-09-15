@@ -178,9 +178,12 @@ output "access_rule_constructors" {
 }
 
 resource "dryad_user" "smoke" {
-  name                = "${var.group_name}-user"
-  sam_account_name    = "${var.group_name}-usr"
-  user_principal_name = "${var.group_name}-usr@${data.dryad_domain.current.dns_root}"
+  name = "${var.group_name}-user"
+  # sAMAccountName has a hard 20 character limit; group_name already varies in length
+  # by transport name and pipeline id, so truncate rather than risk "not a properly
+  # formed account name" on a long combination.
+  sam_account_name    = substr("${var.group_name}-usr", 0, 20)
+  user_principal_name = "${substr("${var.group_name}-usr", 0, 20)}@${data.dryad_domain.current.dns_root}"
   path                = dryad_organizational_unit.smoke.path
   description         = var.ou_description
   display_name        = "${var.group_name} (CI)"

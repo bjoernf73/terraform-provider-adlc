@@ -75,7 +75,10 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"sam_account_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Pre-Windows 2000 group name. Defaults to `name`.",
+				MarkdownDescription: "Pre-Windows 2000 group name. Defaults to `name`. Maximum 20 characters.",
+				Validators: []validator.String{
+					maxLength(20),
+				},
 			},
 			"path": schema.StringAttribute{
 				Required: true,

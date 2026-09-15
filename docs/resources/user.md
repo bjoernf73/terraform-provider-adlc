@@ -58,7 +58,7 @@ resource "dryad_user" "jsmith" {
 
 - `name` (String) User name (the `CN`). Changing this renames the user in place.
 - `path` (String) Container holding the user. Accepts a slash-delimited OU path relative to the domain root (`Contoso/Users`), a distinguished name relative to the domain root (`CN=Users`), or a full distinguished name. Changing this moves the user.
-- `sam_account_name` (String) Pre-Windows 2000 logon name. Unique domain-wide.
+- `sam_account_name` (String) Pre-Windows 2000 logon name. Unique domain-wide, maximum 20 characters.
 - `user_principal_name` (String) User principal name, for example `jdoe@contoso.local`.
 
 ### Optional
