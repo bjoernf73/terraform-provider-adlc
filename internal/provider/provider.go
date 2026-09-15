@@ -168,6 +168,7 @@ func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewGroupResource,
 		NewGroupMemberResource,
 		NewAccessRuleResource,
+		NewUserResource,
 	}
 }
 

@@ -14,6 +14,7 @@ document that the provider decodes.
 | `dryad_organizational_unit` | Organizational units, creating missing parents on demand |
 | `dryad_group` | Groups, including rename and move |
 | `dryad_group_member` | A single group membership |
+| `dryad_user` | User accounts, including rename and move. Passwords are not managed here. |
 | `dryad_access_rule` | A single access control entry (ACE) on any directory object |
 
 ## Data sources

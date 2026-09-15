@@ -68,6 +68,55 @@ resource "dryad_group" "operators" {
   scope        = "Global"
 }
 
+# Every settable property populated, disabled since no password is set here.
+resource "dryad_user" "showcase" {
+  name                = "Dryad Showcase User"
+  sam_account_name    = "dryad-showcase-user"
+  user_principal_name = "dryad-showcase-user@${data.dryad_domain.current.dns_root}"
+  path                = dryad_organizational_unit.root.path
+
+  given_name              = "Dryad"
+  surname                 = "Showcase"
+  display_name            = "Dryad Showcase User"
+  initials                = "DS"
+  other_name              = "Terraform"
+  description             = "Every property on this user is set by Terraform."
+  email                   = "dryad-showcase-user@${data.dryad_domain.current.dns_root}"
+  office                  = "Remote"
+  office_phone            = "+1 555 0100"
+  home_phone              = "+1 555 0101"
+  mobile_phone            = "+1 555 0102"
+  fax                     = "+1 555 0103"
+  home_page               = "https://example.invalid/dryad-showcase-user"
+  street_address          = "1 Showcase Way"
+  po_box                  = "PO Box 1"
+  city                    = "Showcase City"
+  state                   = "Showcase State"
+  postal_code             = "00000"
+  country                 = "US"
+  company                 = "Contoso"
+  department              = "Platform Engineering"
+  division                = "Engineering"
+  organization            = "Contoso"
+  employee_id             = "E-0001"
+  employee_number         = "0001"
+  title                   = "Showcase Engineer"
+  home_directory          = "\\\\fileserver\\home\\dryad-showcase-user"
+  home_drive              = "H:"
+  logon_workstations      = "WORKSTATION1,WORKSTATION2"
+  script_path             = "logon.bat"
+  profile_path            = "\\\\fileserver\\profiles\\dryad-showcase-user"
+  account_expiration_date = "2099-12-31"
+  manager                 = "Administrator"
+
+  enabled                            = false
+  password_never_expires             = true
+  cannot_change_password             = false
+  smart_card_logon_required          = false
+  trusted_for_delegation             = false
+  protected_from_accidental_deletion = true
+}
+
 resource "dryad_group" "announcements" {
   name         = "dryad-showcase-announcements"
   path         = dryad_organizational_unit.child["Groups"].path
@@ -188,6 +237,14 @@ output "groups" {
     }
     operators     = { dn = dryad_group.operators.distinguished_name, sid = dryad_group.operators.sid }
     announcements = { dn = dryad_group.announcements.distinguished_name, sid = dryad_group.announcements.sid }
+  }
+}
+
+output "user" {
+  value = {
+    dn         = dryad_user.showcase.distinguished_name
+    sid        = dryad_user.showcase.sid
+    manager_dn = dryad_user.showcase.manager_dn
   }
 }
 

@@ -176,3 +176,29 @@ output "access_rule_constructors" {
     "6_extended_right"        = dryad_access_rule.smoke.id
   }
 }
+
+resource "dryad_user" "smoke" {
+  name                = "${var.group_name}-user"
+  sam_account_name    = "${var.group_name}-usr"
+  user_principal_name = "${var.group_name}-usr@${data.dryad_domain.current.dns_root}"
+  path                = dryad_organizational_unit.smoke.path
+  description         = var.ou_description
+  display_name        = "${var.group_name} (CI)"
+  given_name          = "CI"
+  surname             = "Smoke"
+  title               = "Smoke Test"
+  manager             = "Administrator"
+  enabled             = false
+}
+
+output "user_id" {
+  value = dryad_user.smoke.id
+}
+
+output "user_distinguished_name" {
+  value = dryad_user.smoke.distinguished_name
+}
+
+output "user_manager_dn" {
+  value = dryad_user.smoke.manager_dn
+}
