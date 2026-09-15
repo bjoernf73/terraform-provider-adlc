@@ -219,5 +219,6 @@ output "user_password_id" {
 }
 
 output "user_password_length" {
-  value = length(dryad_user_password.smoke.password)
+  value     = length(dryad_user_password.smoke.password)
+  sensitive = true
 }
