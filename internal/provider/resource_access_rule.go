@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -45,6 +46,7 @@ type accessRuleResourceModel struct {
 	ObjectType              types.String `tfsdk:"object_type"`
 	InheritedObjectType     types.String `tfsdk:"inherited_object_type"`
 	Inheritance             types.String `tfsdk:"inheritance"`
+	IgnoreAdminCount1       types.Bool   `tfsdk:"ignore_admin_count_1"`
 	TrusteeSID              types.String `tfsdk:"trustee_sid"`
 	ObjectTypeGUID          types.String `tfsdk:"object_type_guid"`
 	InheritedObjectTypeGUID types.String `tfsdk:"inherited_object_type_guid"`
@@ -115,6 +117,14 @@ func (r *accessRuleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					oneOf("None", "All", "Descendents", "SelfAndChildren", "Children"),
 				},
 				PlanModifiers: replace,
+			},
+			"ignore_admin_count_1": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+				MarkdownDescription: "Allow setting this ACE even when `target` has `adminCount = 1` (protected by AdminSDHolder). " +
+					"By default this is an error, because SDProp periodically resets the ACL of any adminCount=1 object to " +
+					"match AdminSDHolder, silently discarding the ACE this resource just added.",
 			},
 			"trustee_sid": schema.StringAttribute{
 				Computed:            true,
@@ -284,6 +294,7 @@ func accessRuleInput(ctx context.Context, model accessRuleResourceModel) (ad.Acc
 		ObjectType:          model.ObjectType.ValueString(),
 		InheritedObjectType: model.InheritedObjectType.ValueString(),
 		Inheritance:         model.Inheritance.ValueString(),
+		IgnoreAdminCount1:   model.IgnoreAdminCount1.ValueBool(),
 	}, diags
 }
 

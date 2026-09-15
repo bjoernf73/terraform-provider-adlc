@@ -379,6 +379,49 @@ one class all avoid it, since none of those pairs are true subsets of each other
 overlapping delegations for the same trustee a different `object_type`,
 `inherited_object_type`, or trustee to keep them distinct.
 
+## AdminSDHolder-protected objects
+
+Active Directory marks highly privileged principals — members of `Domain Admins`,
+`Enterprise Admins`, `Administrators`, and similar built-in groups — with `adminCount = 1`.
+A background process (SDProp) runs roughly every hour and resets the ACL of every
+`adminCount = 1` object to match the `AdminSDHolder` object, discarding any other ACE that
+was added in the meantime — including ones added by Terraform.
+
+`dryad_access_rule` checks the target's `adminCount` before writing and refuses by
+default:
+
+```
+Error: Unable to create access rule
+
+'CN=Administrator,CN=Users,DC=contoso,DC=local' has adminCount=1 (protected by
+AdminSDHolder). Its ACL is periodically reset by SDProp to match AdminSDHolder, so
+any ACE added here will be silently reverted. Set ignore_admin_count_1 = true to
+proceed anyway.
+```
+
+This is not restricted to well-known accounts: **any** security principal — a user, group,
+service account, or computer — ends up with `adminCount = 1` once it is (or ever was) a
+member of a protected group, and it is not cleared automatically when membership is
+removed.
+
+If you genuinely intend to delegate on a protected object — understanding that SDProp
+will revert it on its own schedule — set `ignore_admin_count_1 = true`:
+
+```hcl
+resource "dryad_access_rule" "temporary_delegation" {
+  target                = "CN=Administrator,CN=Users,DC=contoso,DC=local"
+  trustee                = dryad_group.helpdesk.sid
+  rights                 = ["ExtendedRight"]
+  object_type            = "Reset Password"
+  ignore_admin_count_1   = true
+}
+```
+
+Expect this resource to show drift on a roughly hourly cadence once SDProp runs, since
+the ACE will keep disappearing and Terraform will keep re-adding it. That drift is the
+correct, expected signal that the delegation is fighting `AdminSDHolder` — the usual fix
+is to delegate on a different, non-protected object instead of overriding the check.
+
 ## What this resource does not touch
 
 `dryad_access_rule` is deliberately non-authoritative:

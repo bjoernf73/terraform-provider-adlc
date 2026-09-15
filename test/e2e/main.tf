@@ -205,3 +205,19 @@ output "user_distinguished_name" {
 output "user_manager_dn" {
   value = dryad_user.smoke.manager_dn
 }
+
+resource "dryad_user_password" "smoke" {
+  user   = dryad_user.smoke.id
+  length = 20
+  # The user resource above already sets enabled = false and has nothing else needing
+  # it; leave the account disabled rather than enabling a throwaway CI account.
+  enable_account = false
+}
+
+output "user_password_id" {
+  value = dryad_user_password.smoke.id
+}
+
+output "user_password_length" {
+  value = length(dryad_user_password.smoke.password)
+}

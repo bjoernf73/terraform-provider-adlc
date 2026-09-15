@@ -161,3 +161,48 @@ function Get-ADObjectAclPath([string]$DistinguishedName) {
 
     return "AD:\$DistinguishedName"
 }
+
+# adminCount is not a default property, so it must always be requested explicitly.
+function Get-AdminCount([string]$DistinguishedName) {
+    $serverParams = Get-ServerParams
+    $object = Get-ADObject -Identity $DistinguishedName -Properties adminCount @serverParams -ErrorAction Stop
+
+    if ($null -eq $object.adminCount) {
+        return 0
+    }
+
+    return [int]$object.adminCount
+}
+
+# pwdLastSet is a raw FILETIME (100-ns intervals since 1601), not a DateTime, and is 0
+# when no password has ever been set. Returned as an ISO 8601 string, or $null, so callers
+# can detect a password changing (by anyone, anywhere) without ever seeing the password
+# itself.
+function Get-PasswordLastSet([string]$DistinguishedName) {
+    $serverParams = Get-ServerParams
+    $object = Get-ADObject -Identity $DistinguishedName -Properties pwdLastSet @serverParams -ErrorAction Stop
+
+    $raw = [int64]$object.pwdLastSet
+    if ($raw -le 0) {
+        return $null
+    }
+
+    return [DateTime]::FromFileTimeUtc($raw).ToString('o')
+}
+
+# Objects protected by AdminSDHolder (adminCount = 1) have their ACL reset to match
+# AdminSDHolder's on the next SDProp run, typically within an hour. Any explicit ACE this
+# provider adds would silently disappear, so refuse unless the caller opts in.
+function Assert-NotAdminCountProtected([string]$DistinguishedName, [bool]$IgnoreAdminCount1) {
+    if ($IgnoreAdminCount1) {
+        return
+    }
+
+    if ((Get-AdminCount $DistinguishedName) -ne 1) {
+        return
+    }
+
+    throw "'$DistinguishedName' has adminCount=1 (protected by AdminSDHolder). Its ACL is periodically " +
+        "reset by SDProp to match AdminSDHolder, so any ACE added here will be silently reverted. " +
+        "Set ignore_admin_count_1 = true to proceed anyway."
+}

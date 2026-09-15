@@ -1,4 +1,11 @@
 $context = Get-AccessRuleContext
+
+$ignoreAdminCount1 = $false
+if ($null -ne $payload.ignore_admin_count_1) {
+    $ignoreAdminCount1 = [bool]$payload.ignore_admin_count_1
+}
+Assert-NotAdminCountProtected $context.TargetDN $ignoreAdminCount1
+
 $aclPath = Get-ADObjectAclPath $context.TargetDN
 $acl = Get-Acl -Path $aclPath -ErrorAction Stop
 

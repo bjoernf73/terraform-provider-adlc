@@ -78,6 +78,7 @@ resource "dryad_access_rule" "deny_password_reset" {
 ### Optional
 
 - `access` (String) `Allow` or `Deny`.
+- `ignore_admin_count_1` (Boolean) Allow setting this ACE even when `target` has `adminCount = 1` (protected by AdminSDHolder). By default this is an error, because SDProp periodically resets the ACL of any adminCount=1 object to match AdminSDHolder, silently discarding the ACE this resource just added.
 - `inheritance` (String) `ActiveDirectorySecurityInheritance`: `None`, `All`, `Descendents`, `SelfAndChildren` or `Children`. Omitting it applies the ACE to the target object only.
 - `inherited_object_type` (String) Schema class of the child objects that inherit this ACE, for example `organizationalUnit`. Requires `inheritance`.
 - `object_type` (String) Object the rights apply to: a schema class (`computer`), an attribute or property set, an extended right, a GUID, or `All`. Omit for rights that are not object-specific.

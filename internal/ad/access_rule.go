@@ -36,6 +36,7 @@ type AccessRuleInput struct {
 	ObjectType          string
 	InheritedObjectType string
 	Inheritance         string
+	IgnoreAdminCount1   bool
 }
 
 func (i AccessRuleInput) payload() map[string]any {
@@ -47,6 +48,7 @@ func (i AccessRuleInput) payload() map[string]any {
 		"object_type":           strings.TrimSpace(i.ObjectType),
 		"inherited_object_type": strings.TrimSpace(i.InheritedObjectType),
 		"inheritance":           strings.TrimSpace(i.Inheritance),
+		"ignore_admin_count_1":  i.IgnoreAdminCount1,
 	}
 }
 

@@ -248,6 +248,21 @@ output "user" {
   }
 }
 
+# Sets a password each apply. keepers pins it to a fixed value so the same fixed-name
+# showcase run does not generate a new password (and re-enable the account) every time.
+resource "dryad_user_password" "showcase" {
+  user   = dryad_user.showcase.id
+  length = 28
+
+  keepers = {
+    generation = "1"
+  }
+}
+
+output "user_password_id" {
+  value = dryad_user_password.showcase.id
+}
+
 output "access_rules" {
   value = {
     full_control         = dryad_access_rule.constructor1_full_control.id

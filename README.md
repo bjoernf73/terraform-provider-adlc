@@ -15,6 +15,7 @@ document that the provider decodes.
 | `dryad_group` | Groups, including rename and move |
 | `dryad_group_member` | A single group membership |
 | `dryad_user` | User accounts, including rename and move. Passwords are not managed here. |
+| `dryad_user_password` | Sets a user's initial password, generated or supplied |
 | `dryad_access_rule` | A single access control entry (ACE) on any directory object |
 
 ## Data sources
@@ -31,6 +32,7 @@ Full documentation lives in [docs/](docs/) and is published to the Terraform Reg
 - [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
 - [Dependencies and ordering](docs/guides/dependencies.md) — references, `depends_on` and cycles
+- [User passwords and secret storage](docs/guides/passwords.md) — generation, rotation, Vault composition
 - [Repeating object patterns across systems](docs/guides/repeating-patterns.md) — `for_each` and modules
 - Resource reference under [docs/resources/](docs/resources/)
 
