@@ -109,7 +109,7 @@ resource "dryad_user" "showcase" {
   account_expiration_date = "2099-12-31"
   manager                 = "Administrator"
 
-  enabled                            = false
+  enabled                            = true
   password_never_expires             = true
   cannot_change_password             = false
   smart_card_logon_required          = false
