@@ -55,7 +55,7 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 			},
 			"path": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Slash-delimited OU path relative to the domain root, for example `Contoso/Servers/Windows`.",
+				MarkdownDescription: "OU path relative to the domain root. Use slash-delimited segments such as `Servers/Windows`, a relative DN such as `OU=Servers`, or a full DN. Slash segments are always OU names, even when one matches the domain name.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},

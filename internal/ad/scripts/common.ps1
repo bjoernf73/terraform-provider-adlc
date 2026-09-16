@@ -23,7 +23,8 @@ function Get-DomainDN {
 
 # Accepts a slash-delimited OU path relative to the domain root, a distinguished name
 # relative to the domain root, or a full distinguished name. Slash segments default to
-# OU= but may carry their own RDN prefix.
+# OU= but may carry their own RDN prefix. Slash segments are always OUs; a segment that
+# matches the domain name is still an OU name, not a domain component.
 function Convert-PathToDN([string]$Path, [string]$DomainDN) {
     $trimmed = ([string]$Path).Trim()
     if ([string]::IsNullOrWhiteSpace($trimmed)) {

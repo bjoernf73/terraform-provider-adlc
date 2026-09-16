@@ -53,7 +53,7 @@ resource "dryad_group" "legacy_readers" {
 ### Required
 
 - `name` (String) Group name (the `CN`). Changing this renames the group in place.
-- `path` (String) Container holding the group. Accepts a slash-delimited OU path relative to the domain root (`Contoso/Groups`), a distinguished name relative to the domain root (`CN=Users`), or a full distinguished name. Changing this moves the group.
+- `path` (String) Container holding the group. Accepts a slash-delimited path relative to the domain root (for example `Groups` or `Contoso/Groups`), a relative distinguished name such as `CN=Users`, or a full distinguished name. Slash segments are always OU names. Changing this moves the group.
 
 ### Optional
 

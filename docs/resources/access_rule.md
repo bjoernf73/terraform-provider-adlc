@@ -72,7 +72,7 @@ resource "dryad_access_rule" "deny_password_reset" {
 ### Required
 
 - `rights` (Set of String) `ActiveDirectoryRights` values combined into a single ACE, for example `["CreateChild", "DeleteChild"]`.
-- `target` (String) Object the ACE is applied to. Accepts a slash-delimited OU path relative to the domain root (`Contoso/Servers`), a distinguished name relative to the domain root (`CN=Computers`), or a full distinguished name. The object does not need to be managed by Terraform.
+- `target` (String) Object the ACE is applied to. Accepts a slash-delimited path relative to the domain root (for example `Servers` or `Contoso/Servers`), a relative distinguished name such as `CN=Computers`, or a full distinguished name. Slash segments are always OU names. The object does not need to be managed by Terraform.
 - `trustee` (String) Principal the ACE grants or denies rights to. Accepts a SID, a distinguished name, `DOMAIN\name`, a `sAMAccountName`, or a well-known name such as `Authenticated Users`.
 
 ### Optional

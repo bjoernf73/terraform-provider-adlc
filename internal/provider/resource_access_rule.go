@@ -72,11 +72,9 @@ func (r *accessRuleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				},
 			},
 			"target": schema.StringAttribute{
-				Required: true,
-				MarkdownDescription: "Object the ACE is applied to. Accepts a slash-delimited OU path relative to the " +
-					"domain root (`Contoso/Servers`), a distinguished name relative to the domain root " +
-					"(`CN=Computers`), or a full distinguished name. The object does not need to be managed by Terraform.",
-				PlanModifiers: replace,
+				Required:            true,
+				MarkdownDescription: "Object the ACE is applied to. Accepts a slash-delimited path relative to the domain root (for example `Servers` or `Contoso/Servers`), a relative distinguished name such as `CN=Computers`, or a full distinguished name. Slash segments are always OU names. The object does not need to be managed by Terraform.",
+				PlanModifiers:       replace,
 			},
 			"trustee": schema.StringAttribute{
 				Required: true,

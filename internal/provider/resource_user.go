@@ -119,10 +119,8 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				MarkdownDescription: "User principal name, for example `jdoe@contoso.local`.",
 			},
 			"path": schema.StringAttribute{
-				Required: true,
-				MarkdownDescription: "Container holding the user. Accepts a slash-delimited OU path relative to the " +
-					"domain root (`Contoso/Users`), a distinguished name relative to the domain root (`CN=Users`), " +
-					"or a full distinguished name. Changing this moves the user.",
+				Required:            true,
+				MarkdownDescription: "Container holding the user. Accepts a slash-delimited path relative to the domain root (for example `Users` or `Contoso/Users`), a relative distinguished name such as `CN=Users`, or a full distinguished name. Slash segments are always OU names. Changing this moves the user.",
 			},
 			"description":     optional("Description."),
 			"display_name":    optional("Display name."),

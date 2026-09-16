@@ -41,7 +41,7 @@ Which form is used is detected from the shape of the value:
 ## Slash paths
 
 A slash path reads in the natural direction, parent first, and every segment is assumed
-to be an organizational unit:
+to be an organizational unit below the connected domain root:
 
 ```hcl
 resource "dryad_organizational_unit" "windows" {
@@ -49,7 +49,23 @@ resource "dryad_organizational_unit" "windows" {
 }
 ```
 
-Nothing in that configuration names the domain, so the same module applies unchanged to
+Slash segments are always OU names. If a segment happens to match the connected domain's
+NetBIOS name or DNS label, it is still treated as an OU, not as a domain component. For
+example, with the domain `Contoso.local`:
+
+```text
+Contoso/Servers       -> OU=Servers,OU=Contoso,DC=Contoso,DC=local
+Contoso.local/Servers -> OU=Servers,OU=Contoso.local,DC=Contoso,DC=local
+```
+
+Use a relative or full DN when you need a non-OU RDN or want to spell out the domain:
+
+```hcl
+path = "OU=Servers"
+path = "OU=Servers,DC=contoso,DC=local"
+```
+
+Nothing in the relative path names the domain, so the same module applies unchanged to
 `contoso.local` and `test.contoso.local`.
 
 ~> `dryad_organizational_unit` **creates missing parents** along the path. `dryad_group`

@@ -30,7 +30,7 @@ resource "dryad_organizational_unit" "linux" {
 
 ### Required
 
-- `path` (String) Slash-delimited OU path relative to the domain root, for example `Contoso/Servers/Windows`.
+- `path` (String) OU path relative to the domain root. Use slash-delimited segments such as `Servers/Windows`, a relative DN such as `OU=Servers`, or a full DN. Slash segments are always OU names, even when one matches the domain name.
 
 ### Optional
 
