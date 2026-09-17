@@ -108,8 +108,12 @@ output "group_member_id" {
 
 # Security principal referenced by the "Domain - GPO2" backup's migration table (see
 # dryad_backup_gpo.domain_gpo2 below); its restricted-groups setting resolves this by
-# name in the target domain.
+# name in the target domain. Its name is a fixed literal (it must match the migration
+# table), so only one transport job creates it - ssh and winrm run in parallel within
+# the same pipeline, and sAMAccountName uniqueness is domain-wide, not per-OU.
 resource "dryad_group" "right_adm_builtingroup_remotedesktopusers" {
+  count = var.transport == "ssh" ? 1 : 0
+
   name     = "Right-ADM-BuiltinGroup-RemoteDesktopUsers"
   path     = dryad_organizational_unit.smoke.path
   category = "Security"
@@ -117,7 +121,7 @@ resource "dryad_group" "right_adm_builtingroup_remotedesktopusers" {
 }
 
 output "right_adm_builtingroup_remotedesktopusers_sid" {
-  value = dryad_group.right_adm_builtingroup_remotedesktopusers.sid
+  value = try(dryad_group.right_adm_builtingroup_remotedesktopusers[0].sid, null)
 }
 
 output "domain_dn" {
