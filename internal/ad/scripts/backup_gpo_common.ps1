@@ -47,7 +47,10 @@ function Get-BackupGPOResult($Gpo) {
         exists                  = $true
         guid                    = $Gpo.Id.ToString()
         name                    = $Gpo.DisplayName
-        distinguished_name      = ([string]$Gpo.Path -replace '^LDAP://', '')
+        # $Gpo.Path's GUID casing depends on which Get-GPO parameter set resolved it
+        # (-Name vs -Guid), which would otherwise show up as permanent drift; build the
+        # DN ourselves from $Gpo.Id, which Get-GPO always renders the same way.
+        distinguished_name      = "CN={$($Gpo.Id.ToString())},CN=Policies,CN=System,$(Get-DomainDN)"
         domain                  = $Gpo.DomainName
         status                  = $Gpo.GpoStatus.ToString()
         computer_ad_version     = [int64]$Gpo.Computer.DSVersion
