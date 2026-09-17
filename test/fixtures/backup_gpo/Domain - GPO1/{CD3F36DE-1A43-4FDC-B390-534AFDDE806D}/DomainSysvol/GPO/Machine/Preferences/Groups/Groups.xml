@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Groups clsid="{3125E937-EB16-4b4c-9934-544FC6D24D26}">
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Administrators" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Administrators">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-Administrators" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1174" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Backup Operators" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Backup Operators">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-BackupOperators" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1175" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Distributed COM Users" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Distributed COM Users">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-DistributedCOMUsers" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1176" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="IIS_IUSRS" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="IIS_IUSRS">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-IIS_IUSRS" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1177" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Remote Desktop Users" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Remote Desktop Users">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-RemoteDesktopUsers" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1178" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Remote Management Users" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Remote Management Users">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-RemoteManagementUsers" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1179" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Users" image="2" changed="2026-08-07 10:29:22" uid="D7096F60-292E-4CA8-886F-3117E682DC60">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Users">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-Users" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1180" />
+            </Members>
+        </Properties>
+    </Group>
+</Groups>

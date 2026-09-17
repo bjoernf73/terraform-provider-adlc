@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Groups clsid="{3125E937-EB16-4b4c-9934-544FC6D24D26}">
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Certificate Service DCOM Access" image="2" changed="2026-08-07 10:29:32" uid="F82837DF-5ED3-4714-B4BA-459108A48C1E">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Certificate Service DCOM Access">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-CertServDCOMaccess" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1184" />
+            </Members>
+        </Properties>
+    </Group>
+    <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Cryptographic Operators" image="2" changed="2026-08-07 10:29:32" uid="F82837DF-5ED3-4714-B4BA-459108A48C1E">
+        <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupName="Cryptographic Operators">
+            <Members>
+                <Member name="UTV\Right-CA-BuiltinGroup-CryptographicOperators" action="ADD" sid="S-1-5-21-4168682118-2042538356-1191879790-1185" />
+            </Members>
+        </Properties>
+    </Group>
+</Groups>

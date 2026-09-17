@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RegistrySettings clsid="{A3CCFC41-DFDB-43a5-8D26-0FE8B954DA51}">
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="SecureProtocols" status="SecureProtocols" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SOFTWARE\Policies\Microsoft\Windows\CurrentVersion\Internet Settings" name="SecureProtocols" type="REG_DWORD" value="00000A80" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="EventLogging" status="EventLogging" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL" name="EventLogging" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DisabledByDefault" status="DisabledByDefault" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\PCT 1.0\Client" name="DisabledByDefault" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DisabledByDefault" status="DisabledByDefault" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Client" name="DisabledByDefault" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DisabledByDefault" status="DisabledByDefault" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Client" name="DisabledByDefault" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DisabledByDefault" status="DisabledByDefault" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client" name="DisabledByDefault" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DisabledByDefault" status="DisabledByDefault" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client" name="DisabledByDefault" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DisabledByDefault" status="DisabledByDefault" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client" name="DisabledByDefault" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\PCT 1.0\Server" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server" name="Enabled" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server" name="Enabled" type="REG_DWORD" value="00000001" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\AES 128" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\AES 256" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\DES 56" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\NULL" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC2 40/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC2 56/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC2 128/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC4 40/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC4 56/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC4 64/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC4 128/128" name="Enabled" type="REG_DWORD" value="00000000" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\Triple DES 168" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Hashes\SHA" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Hashes\SHA256" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Hashes\SHA384" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\KeyExchangeAlgorithms\ECDH" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Enabled" status="Enabled" image="12" changed="2026-08-07 10:16:12" uid="C2E2F93A-BFEC-48EB-AC28-E5A132851F19">
+        <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\KeyExchangeAlgorithms\PKCS" name="Enabled" type="REG_DWORD" value="FFFFFFFF" />
+    </Registry>
+</RegistrySettings>
