@@ -127,18 +127,11 @@ resource "dryad_group" "announcements" {
   scope        = "Universal"
 }
 
-# Security principals referenced by the "Domain - GPO1" backup's migration table (see
-# dryad_backup_gpo.domain_gpo1 below); the GPO's user rights assignment and restricted
-# groups settings resolve these by name in the target domain.
+# Security principal referenced by the "Domain - GPO1" backup's migration table (see
+# dryad_backup_gpo.domain_gpo1 below); the GPO's restricted groups setting resolves this
+# by name in the target domain.
 resource "dryad_group" "another_group" {
   name     = "AnotherGroup"
-  path     = dryad_organizational_unit.child["Groups"].path
-  category = "Security"
-  scope    = "Global"
-}
-
-resource "dryad_group" "right_dc_ura_sesystemprofileprivilege" {
-  name     = "Right-DC-URA-SeSystemProfilePrivilege"
   path     = dryad_organizational_unit.child["Groups"].path
   category = "Security"
   scope    = "Global"
@@ -255,10 +248,6 @@ output "groups" {
     operators     = { dn = dryad_group.operators.distinguished_name, sid = dryad_group.operators.sid }
     announcements = { dn = dryad_group.announcements.distinguished_name, sid = dryad_group.announcements.sid }
     another_group = { dn = dryad_group.another_group.distinguished_name, sid = dryad_group.another_group.sid }
-    right_dc_ura_sesystemprofileprivilege = {
-      dn  = dryad_group.right_dc_ura_sesystemprofileprivilege.distinguished_name
-      sid = dryad_group.right_dc_ura_sesystemprofileprivilege.sid
-    }
   }
 }
 

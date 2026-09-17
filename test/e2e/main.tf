@@ -106,20 +106,6 @@ output "group_member_id" {
   value = dryad_group_member.smoke.id
 }
 
-# Security principal referenced by the "Domain - GPO2" backup's migration table (see
-# dryad_backup_gpo.domain_gpo2 below); its restricted-groups setting resolves this by
-# name in the target domain.
-resource "dryad_group" "right_adm_builtingroup_remotedesktopusers" {
-  name     = "Right-ADM-BuiltinGroup-RemoteDesktopUsers"
-  path     = dryad_organizational_unit.smoke.path
-  category = "Security"
-  scope    = "Global"
-}
-
-output "right_adm_builtingroup_remotedesktopusers_sid" {
-  value = dryad_group.right_adm_builtingroup_remotedesktopusers.sid
-}
-
 output "domain_dn" {
   value = data.dryad_domain.current.distinguished_name
 }
