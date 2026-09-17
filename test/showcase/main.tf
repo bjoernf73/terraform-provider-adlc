@@ -137,6 +137,13 @@ resource "dryad_group" "another_group" {
   scope    = "Global"
 }
 
+resource "dryad_group" "right_dc_ura_sesystemprofileprivilege" {
+  name     = "Right-DC-URA-SeSystemProfilePrivilege"
+  path     = dryad_organizational_unit.child["Groups"].path
+  category = "Security"
+  scope    = "Global"
+}
+
 # Nested membership.
 resource "dryad_group_member" "operators_in_admins" {
   group  = dryad_group.admins.id
@@ -248,6 +255,10 @@ output "groups" {
     operators     = { dn = dryad_group.operators.distinguished_name, sid = dryad_group.operators.sid }
     announcements = { dn = dryad_group.announcements.distinguished_name, sid = dryad_group.announcements.sid }
     another_group = { dn = dryad_group.another_group.distinguished_name, sid = dryad_group.another_group.sid }
+    right_dc_ura_sesystemprofileprivilege = {
+      dn  = dryad_group.right_dc_ura_sesystemprofileprivilege.distinguished_name
+      sid = dryad_group.right_dc_ura_sesystemprofileprivilege.sid
+    }
   }
 }
 
