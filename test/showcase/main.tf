@@ -144,6 +144,34 @@ resource "dryad_group" "right_dc_ura_sesystemprofileprivilege" {
   scope    = "Global"
 }
 
+# Imported from a real GPMC backup (test/showcase/backup_gpo/Domain - GPO1); the
+# migration table entries map security principals baked into the backup by name, so
+# they resolve fresh in this domain instead of carrying over the source's SIDs.
+resource "dryad_backup_gpo" "domain_gpo1" {
+  backup_name = "Domain - GPO1"
+  path        = "${path.module}/backup_gpo"
+  target_name = "Domain - GPO1"
+
+  migrations = [
+    { type = "GlobalGroup", source = "AnotherGroup@utv.local", same_as_source = true },
+    { type = "LocalGroup", source = "Right-DC-URA-SeSystemProfilePrivilege@utv.local", same_as_source = true },
+    { type = "UniversalGroup", source = "Enterprise Admins@utv.local", same_as_source = true },
+    { type = "GlobalGroup", source = "Domain Admins@utv.local", same_as_source = true },
+  ]
+
+  depends_on = [
+    dryad_group.another_group,
+    dryad_group.right_dc_ura_sesystemprofileprivilege,
+  ]
+}
+
+# Imported as-is: no migration table for "Domain - GPO4".
+resource "dryad_backup_gpo" "domain_gpo4" {
+  backup_name = "Domain - GPO4"
+  path        = "${path.module}/backup_gpo"
+  target_name = "Domain - GPO4"
+}
+
 # Nested membership.
 resource "dryad_group_member" "operators_in_admins" {
   group  = dryad_group.admins.id
@@ -283,6 +311,13 @@ resource "dryad_user_password" "showcase" {
 
 output "user_password_id" {
   value = dryad_user_password.showcase.id
+}
+
+output "backup_gpos" {
+  value = {
+    domain_gpo1 = { id = dryad_backup_gpo.domain_gpo1.id, dn = dryad_backup_gpo.domain_gpo1.distinguished_name }
+    domain_gpo4 = { id = dryad_backup_gpo.domain_gpo4.id, dn = dryad_backup_gpo.domain_gpo4.distinguished_name }
+  }
 }
 
 output "access_rules" {

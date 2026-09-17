@@ -214,8 +214,15 @@ func (r *backupGPOResource) ValidateConfig(ctx context.Context, req resource.Val
 	}
 
 	for _, entry := range entries {
-		hasDestination := !entry.Destination.IsNull() && !entry.Destination.IsUnknown() && entry.Destination.ValueString() != ""
-		sameAsSource := !entry.SameAsSource.IsUnknown() && entry.SameAsSource.ValueBool()
+		// destination commonly references a not-yet-known value (a data source or
+		// another resource's computed attribute), so it can't be judged "unset" from
+		// this alone at validate time; defer to apply time instead of false-positiving.
+		if entry.Destination.IsUnknown() || entry.SameAsSource.IsUnknown() {
+			continue
+		}
+
+		hasDestination := !entry.Destination.IsNull() && entry.Destination.ValueString() != ""
+		sameAsSource := entry.SameAsSource.ValueBool()
 
 		if hasDestination == sameAsSource {
 			resp.Diagnostics.AddAttributeError(

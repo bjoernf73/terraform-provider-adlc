@@ -124,6 +124,50 @@ output "right_adm_builtingroup_remotedesktopusers_sid" {
   value = try(dryad_group.right_adm_builtingroup_remotedesktopusers[0].sid, null)
 }
 
+# GPO display names aren't namespaced per job like the OU/group/user fixtures above, so
+# importing them from both parallel transport jobs would race the same way the group
+# above did - only the ssh job imports these, matching that gating.
+
+# Imported from a real GPMC backup (test/e2e/backup_gpo/Domain - GPO2); the migration
+# table mixes same_as_source (resolve fresh by name) with an explicit destination built
+# from the target domain, for the one entry we want redirected rather than re-resolved.
+resource "dryad_backup_gpo" "domain_gpo2" {
+  count = var.transport == "ssh" ? 1 : 0
+
+  backup_name = "Domain - GPO2"
+  path        = "${path.module}/backup_gpo"
+  target_name = "Domain - GPO2"
+
+  migrations = [
+    { type = "Unknown", source = "Remote Desktop Users", same_as_source = true },
+    {
+      type        = "LocalGroup"
+      source      = "Right-ADM-BuiltinGroup-RemoteDesktopUsers@utv.local"
+      destination = "Right-ADM-BuiltinGroup-RemoteDesktopUsers@${data.dryad_domain.current.dns_root}"
+    },
+    { type = "UniversalGroup", source = "Enterprise Admins@utv.local", same_as_source = true },
+    { type = "GlobalGroup", source = "Domain Admins@utv.local", same_as_source = true },
+  ]
+
+  depends_on = [dryad_group.right_adm_builtingroup_remotedesktopusers]
+}
+
+# Imported as-is: no migration table for "Domain - GPO3".
+resource "dryad_backup_gpo" "domain_gpo3" {
+  count = var.transport == "ssh" ? 1 : 0
+
+  backup_name = "Domain - GPO3"
+  path        = "${path.module}/backup_gpo"
+  target_name = "Domain - GPO3"
+}
+
+output "backup_gpos" {
+  value = {
+    domain_gpo2 = try({ id = dryad_backup_gpo.domain_gpo2[0].id, dn = dryad_backup_gpo.domain_gpo2[0].distinguished_name }, null)
+    domain_gpo3 = try({ id = dryad_backup_gpo.domain_gpo3[0].id, dn = dryad_backup_gpo.domain_gpo3[0].distinguished_name }, null)
+  }
+}
+
 output "domain_dn" {
   value = data.dryad_domain.current.distinguished_name
 }
