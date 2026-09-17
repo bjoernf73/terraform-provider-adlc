@@ -33,6 +33,19 @@ func TestBuildMigrationTableXMLContents(t *testing.T) {
 	}
 }
 
+func TestBuildMigrationTableXMLSameAsSource(t *testing.T) {
+	xml := BuildMigrationTableXML([]BackupGPOMigration{
+		{Source: `AnotherGroup@utv.local`, SameAsSource: true, Type: "GlobalGroup"},
+	})
+
+	if strings.Contains(xml, "<Destination>") {
+		t.Fatalf("expected no <Destination> element for a same_as_source entry, got:\n%s", xml)
+	}
+	if !strings.Contains(xml, "<DestinationSameAsSource>") {
+		t.Fatalf("expected a <DestinationSameAsSource> element, got:\n%s", xml)
+	}
+}
+
 func TestHashBackupGPOContentOrderIndependent(t *testing.T) {
 	filesA := []BackupGPOFile{{Path: "a.xml", Content: "AA=="}, {Path: "b.xml", Content: "BB=="}}
 	filesB := []BackupGPOFile{{Path: "b.xml", Content: "BB=="}, {Path: "a.xml", Content: "AA=="}}

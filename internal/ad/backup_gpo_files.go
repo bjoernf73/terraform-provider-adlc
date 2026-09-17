@@ -88,6 +88,10 @@ func HashBackupGPOContent(files []BackupGPOFile, migrations []BackupGPOMigration
 		h.Write([]byte{0})
 		io.WriteString(h, m.Destination)
 		h.Write([]byte{0})
+		if m.SameAsSource {
+			h.Write([]byte{1})
+		}
+		h.Write([]byte{0})
 		io.WriteString(h, m.Type)
 		h.Write([]byte{0})
 	}

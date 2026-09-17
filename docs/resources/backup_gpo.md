@@ -82,12 +82,13 @@ resource "dryad_backup_gpo" "baseline_workstation" {
 
 Required:
 
-- `destination` (String) Replacement value.
-- `source` (String) Value to replace, exactly as it appears in the backup (a SID, `DOMAIN\name`, or a UNC path).
+- `source` (String) Value to replace, exactly as it appears in the backup (a SID, `DOMAIN\name`, or a UNC path). Always reflects the *source* environment the backup was taken from, and does not change when importing into a different target.
 
 Optional:
 
-- `type` (String) Migration table entry type. One of `User`, `GlobalGroup`, `DomainLocalGroup`, `UniversalGroup`, `Computer`, `UNCPath`, `DomainDNSName`, `DomainNetBiosName`, `SidToSid` or `Unknown`. Defaults to `Unknown`.
+- `destination` (String) Replacement value. Omit and set `same_as_source` instead to have Import-GPO re-resolve the same name in the target domain/forest rather than substituting a fixed value. Exactly one of `destination` or `same_as_source` is required.
+- `same_as_source` (Boolean) Re-resolve `source`'s name in the target domain/forest instead of substituting a fixed `destination` (GPMC's `<DestinationSameAsSource/>`, what tools like MTEdit emit when no explicit mapping is given). Exactly one of `destination` or `same_as_source` is required.
+- `type` (String) Migration table entry type. One of `User`, `GlobalGroup`, `LocalGroup`, `DomainLocalGroup`, `UniversalGroup`, `Computer`, `UNCPath`, `DomainDNSName`, `DomainNetBiosName`, `SidToSid` or `Unknown`. Defaults to `Unknown`.
 
 ## Import
 

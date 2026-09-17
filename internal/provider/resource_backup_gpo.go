@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -20,10 +21,11 @@ import (
 )
 
 var (
-	_ resource.Resource                = &backupGPOResource{}
-	_ resource.ResourceWithConfigure   = &backupGPOResource{}
-	_ resource.ResourceWithImportState = &backupGPOResource{}
-	_ resource.ResourceWithModifyPlan  = &backupGPOResource{}
+	_ resource.Resource                   = &backupGPOResource{}
+	_ resource.ResourceWithConfigure      = &backupGPOResource{}
+	_ resource.ResourceWithImportState    = &backupGPOResource{}
+	_ resource.ResourceWithModifyPlan     = &backupGPOResource{}
+	_ resource.ResourceWithValidateConfig = &backupGPOResource{}
 )
 
 func NewBackupGPOResource() resource.Resource {
@@ -35,9 +37,10 @@ type backupGPOResource struct {
 }
 
 type backupGPOMigrationModel struct {
-	Source      types.String `tfsdk:"source"`
-	Destination types.String `tfsdk:"destination"`
-	Type        types.String `tfsdk:"type"`
+	Source       types.String `tfsdk:"source"`
+	Destination  types.String `tfsdk:"destination"`
+	SameAsSource types.Bool   `tfsdk:"same_as_source"`
+	Type         types.String `tfsdk:"type"`
 }
 
 type backupGPOResourceModel struct {
@@ -111,21 +114,29 @@ func (r *backupGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					Attributes: map[string]schema.Attribute{
 						"source": schema.StringAttribute{
 							Required:            true,
-							MarkdownDescription: "Value to replace, exactly as it appears in the backup (a SID, `DOMAIN\\name`, or a UNC path).",
+							MarkdownDescription: "Value to replace, exactly as it appears in the backup (a SID, `DOMAIN\\name`, or a UNC path). Always reflects the *source* environment the backup was taken from, and does not change when importing into a different target.",
 						},
 						"destination": schema.StringAttribute{
-							Required:            true,
-							MarkdownDescription: "Replacement value.",
+							Optional:            true,
+							MarkdownDescription: "Replacement value. Omit and set `same_as_source` instead to have Import-GPO re-resolve the same name in the target domain/forest rather than substituting a fixed value. Exactly one of `destination` or `same_as_source` is required.",
+						},
+						"same_as_source": schema.BoolAttribute{
+							Optional: true,
+							Computed: true,
+							Default:  booldefault.StaticBool(false),
+							MarkdownDescription: "Re-resolve `source`'s name in the target domain/forest instead of substituting a fixed `destination` " +
+								"(GPMC's `<DestinationSameAsSource/>`, what tools like MTEdit emit when no explicit mapping is given). " +
+								"Exactly one of `destination` or `same_as_source` is required.",
 						},
 						"type": schema.StringAttribute{
 							Optional: true,
 							Computed: true,
 							Default:  stringdefault.StaticString("Unknown"),
-							MarkdownDescription: "Migration table entry type. One of `User`, `GlobalGroup`, `DomainLocalGroup`, " +
+							MarkdownDescription: "Migration table entry type. One of `User`, `GlobalGroup`, `LocalGroup`, `DomainLocalGroup`, " +
 								"`UniversalGroup`, `Computer`, `UNCPath`, `DomainDNSName`, `DomainNetBiosName`, `SidToSid` or `Unknown`. " +
 								"Defaults to `Unknown`.",
 							Validators: []validator.String{
-								oneOf("User", "GlobalGroup", "DomainLocalGroup", "UniversalGroup", "Computer", "UNCPath", "DomainDNSName", "DomainNetBiosName", "SidToSid", "Unknown"),
+								oneOf("User", "GlobalGroup", "LocalGroup", "DomainLocalGroup", "UniversalGroup", "Computer", "UNCPath", "DomainDNSName", "DomainNetBiosName", "SidToSid", "Unknown"),
 							},
 						},
 					},
@@ -186,6 +197,33 @@ func (r *backupGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				},
 			},
 		},
+	}
+}
+
+func (r *backupGPOResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config backupGPOResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() || config.Migrations.IsUnknown() || config.Migrations.IsNull() {
+		return
+	}
+
+	var entries []backupGPOMigrationModel
+	resp.Diagnostics.Append(config.Migrations.ElementsAs(ctx, &entries, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, entry := range entries {
+		hasDestination := !entry.Destination.IsNull() && !entry.Destination.IsUnknown() && entry.Destination.ValueString() != ""
+		sameAsSource := !entry.SameAsSource.IsUnknown() && entry.SameAsSource.ValueBool()
+
+		if hasDestination == sameAsSource {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("migrations"),
+				"Invalid migration entry",
+				fmt.Sprintf("migration entry for %q must set exactly one of destination or same_as_source.", entry.Source.ValueString()),
+			)
+		}
 	}
 }
 
@@ -387,9 +425,10 @@ func backupGPOMigrationsFromList(ctx context.Context, list types.List) ([]ad.Bac
 	migrations := make([]ad.BackupGPOMigration, 0, len(models))
 	for _, m := range models {
 		migrations = append(migrations, ad.BackupGPOMigration{
-			Source:      m.Source.ValueString(),
-			Destination: m.Destination.ValueString(),
-			Type:        m.Type.ValueString(),
+			Source:       m.Source.ValueString(),
+			Destination:  m.Destination.ValueString(),
+			SameAsSource: m.SameAsSource.ValueBool(),
+			Type:         m.Type.ValueString(),
 		})
 	}
 

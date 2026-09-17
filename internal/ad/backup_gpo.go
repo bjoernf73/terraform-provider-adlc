@@ -22,11 +22,15 @@ type BackupGPOFile struct {
 }
 
 // BackupGPOMigration is one entry of a GPO migration table, applied by Import-GPO to
-// remap security principals and UNC paths baked into the backed-up GPO.
+// remap security principals and UNC paths baked into the backed-up GPO. Exactly one of
+// Destination or SameAsSource should be set: SameAsSource tells Import-GPO to re-resolve
+// the same name in the target domain/forest instead of substituting a fixed value -
+// MTEdit emits this as <DestinationSameAsSource/> whenever no explicit mapping is given.
 type BackupGPOMigration struct {
-	Source      string
-	Destination string
-	Type        string
+	Source       string
+	Destination  string
+	SameAsSource bool
+	Type         string
 }
 
 type BackupGPOInput struct {
@@ -122,9 +126,10 @@ type migrationTableXML struct {
 }
 
 type migrationMappingXML struct {
-	Type        string `xml:"Type"`
-	Source      string `xml:"Source"`
-	Destination string `xml:"Destination"`
+	Type                 string    `xml:"Type"`
+	Source               string    `xml:"Source"`
+	Destination          string    `xml:"Destination,omitempty"`
+	DestinationSameAsSrc *struct{} `xml:"DestinationSameAsSource,omitempty"`
 }
 
 // BuildMigrationTableXML renders migrations as a GPMC migration table (.migtable) file,
@@ -139,11 +144,16 @@ func BuildMigrationTableXML(migrations []BackupGPOMigration) string {
 		Xmlns: "http://www.microsoft.com/GroupPolicy/GPOOperations/MigrationTable",
 	}
 	for _, m := range migrations {
-		table.Mapping = append(table.Mapping, migrationMappingXML{
-			Type:        m.Type,
-			Source:      m.Source,
-			Destination: m.Destination,
-		})
+		mapping := migrationMappingXML{
+			Type:   m.Type,
+			Source: m.Source,
+		}
+		if m.SameAsSource {
+			mapping.DestinationSameAsSrc = &struct{}{}
+		} else {
+			mapping.Destination = m.Destination
+		}
+		table.Mapping = append(table.Mapping, mapping)
 	}
 
 	out, err := xml.MarshalIndent(table, "", "  ")
