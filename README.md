@@ -17,12 +17,16 @@ document that the provider decodes.
 | `dryad_user` | User accounts, including rename and move. Passwords are not managed here. |
 | `dryad_user_password` | Sets a user's initial password, generated or supplied |
 | `dryad_access_rule` | A single access control entry (ACE) on any directory object |
+| `dryad_backup_gpo` | Imports a `Backup-GPO` folder into a GPO |
+| `dryad_json_gpo` | Imports a JSON-described GPO |
+| `dryad_gpo_links` | The full, ordered set of GPO links on an OU, domain or site |
 
 ## Data sources
 
 | Data source | Reads |
 | --- | --- |
 | `dryad_domain` | The connected domain: DN, DNS root, NetBIOS name, well-known containers |
+| `dryad_json_gpo_export` | A live GPO's SYSVOL content, as JSON |
 
 ## Documentation
 
@@ -31,6 +35,7 @@ Full documentation lives in [docs/](docs/) and is published to the Terraform Reg
 - [Provider configuration and authentication](docs/index.md)
 - [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
+- [Managing Group Policy Objects](docs/guides/gpos.md) — backup vs. JSON GPOs, migration, links, drift
 - [Dependencies and ordering](docs/guides/dependencies.md) — references, `depends_on` and cycles
 - [User passwords and secret storage](docs/guides/passwords.md) — generation, rotation, Vault composition
 - [Repeating object patterns across systems](docs/guides/repeating-patterns.md) — `for_each` and modules
