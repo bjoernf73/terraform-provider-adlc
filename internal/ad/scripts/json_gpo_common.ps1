@@ -76,15 +76,18 @@ function Resolve-JsonGPOToken([string]$InputString, [switch]$LowerCase) {
     return $InputString.Replace('####Replace', '')
 }
 
-# Applies the user-supplied free-text replacements (a plain key/value map, case
-# insensitive, regex on the left-hand side) to the raw JSON text before it is parsed.
+# Applies the user-supplied free-text replacements to the raw JSON text before it is
+# parsed. Each map key is a bare name (e.g. "DomainFQDN"); the #### delimiters are
+# implied, the same way Ansible variables imply {{ }}, so this wraps the key before
+# matching it case-insensitively against the text.
 function Resolve-JsonGPOReplacements([string]$JsonRaw, $Replacements) {
     if ($null -eq $Replacements) {
         return $JsonRaw
     }
 
     foreach ($property in $Replacements.PSObject.Properties) {
-        $JsonRaw = $JsonRaw -ireplace [regex]::Escape($property.Name), $property.Value
+        $token = "####$($property.Name)####"
+        $JsonRaw = $JsonRaw -ireplace [regex]::Escape($token), $property.Value
     }
 
     return $JsonRaw

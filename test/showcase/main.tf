@@ -222,8 +222,8 @@ locals {
 
   json_gpo_replacements = {
     "Domain - Domain Policy - v0r2.json" = {
-      "####DomainFQDN####" = data.dryad_domain.current.dns_root
-      "####DomainNB####"   = data.dryad_domain.current.netbios_name
+      DomainFQDN = data.dryad_domain.current.dns_root
+      DomainNB   = data.dryad_domain.current.netbios_name
     }
   }
 }

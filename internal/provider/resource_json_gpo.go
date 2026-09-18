@@ -94,12 +94,13 @@ func (r *jsonGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"replacements": schema.MapAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				MarkdownDescription: "Free-text replacements applied to the raw JSON before it is parsed: each key is matched " +
-					"case-insensitively (as a substring, not a regex) anywhere in the file and replaced with its value - the " +
-					"`####key####` convention `dry.module.ad` uses for values an export can't classify automatically (a domain " +
-					"FQDN embedded in free text, for example). Unlike `dryad_backup_gpo`'s `migrations`, there is no `type`: " +
-					"this is plain text substitution. Security principals are handled separately and automatically, and never " +
-					"need an entry here.",
+				MarkdownDescription: "Free-text replacements applied to the raw JSON before it is parsed. Each key is a bare " +
+					"name (`DomainFQDN`, not `####DomainFQDN####`) - the `####` delimiters are implied, the same way Ansible " +
+					"variables imply `{{ }}` - matched case-insensitively (as a substring, not a regex) anywhere in the file " +
+					"and replaced with its value. This is `dry.module.ad`'s convention for values an export can't classify " +
+					"automatically (a domain FQDN embedded in free text, for example). Unlike `dryad_backup_gpo`'s " +
+					"`migrations`, there is no `type`: this is plain text substitution. Security principals are handled " +
+					"separately and automatically, and never need an entry here.",
 			},
 			"content_hash": schema.StringAttribute{
 				Computed: true,

@@ -27,10 +27,11 @@ resource "dryad_json_gpo" "domain_gpo5" {
   target_name = "Domain - GPO5"
 
   # Free-text ####key#### tokens the export couldn't classify automatically (a domain
-  # FQDN embedded in a script argument, for example). Security principals are resolved
-  # automatically by name and never need an entry here.
+  # FQDN embedded in a script argument, for example) - keys are bare names, the ####
+  # delimiters are implied. Security principals are resolved automatically by name and
+  # never need an entry here.
   replacements = {
-    "####DomainFQDN####" = data.dryad_domain.current.dns_root
+    DomainFQDN = data.dryad_domain.current.dns_root
   }
 }
 ```
@@ -45,7 +46,7 @@ resource "dryad_json_gpo" "domain_gpo5" {
 
 ### Optional
 
-- `replacements` (Map of String) Free-text replacements applied to the raw JSON before it is parsed: each key is matched case-insensitively (as a substring, not a regex) anywhere in the file and replaced with its value - the `####key####` convention `dry.module.ad` uses for values an export can't classify automatically (a domain FQDN embedded in free text, for example). Unlike `dryad_backup_gpo`'s `migrations`, there is no `type`: this is plain text substitution. Security principals are handled separately and automatically, and never need an entry here.
+- `replacements` (Map of String) Free-text replacements applied to the raw JSON before it is parsed. Each key is a bare name (`DomainFQDN`, not `####DomainFQDN####`) - the `####` delimiters are implied, the same way Ansible variables imply `{{ }}` - matched case-insensitively (as a substring, not a regex) anywhere in the file and replaced with its value. This is `dry.module.ad`'s convention for values an export can't classify automatically (a domain FQDN embedded in free text, for example). Unlike `dryad_backup_gpo`'s `migrations`, there is no `type`: this is plain text substitution. Security principals are handled separately and automatically, and never need an entry here.
 
 ### Read-Only
 
