@@ -1,5 +1,5 @@
 {
-    "Name":  "###DomainNB### - Domain Policy - v0r2",
+    "Name":  "####DomainNB#### - Domain Policy - v0r2",
     "Linktargets":  null,
     "ComputerSettingsEnabled":  true,
     "UserSettingsEnabled":  false,
@@ -27,7 +27,7 @@
                                                         "Target":  "Machine",
                                                         "KeyName":  "Software\\Policies\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\ZoneMapKey",
                                                         "ValueType":  "REG_SZ",
-                                                        "ValueName":  "\\\\###DomainFQDN###",
+                                                        "ValueName":  "\\\\####DomainFQDN####",
                                                         "ValueData":  "1",
                                                         "ObjectType":  "RegistrySetting"
                                                     },
@@ -35,7 +35,7 @@
                                                         "Target":  "Machine",
                                                         "KeyName":  "Software\\Policies\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\ZoneMapKey",
                                                         "ValueType":  "REG_SZ",
-                                                        "ValueName":  "\\\\###DomainNB###",
+                                                        "ValueName":  "\\\\####DomainNB####",
                                                         "ValueData":  "1",
                                                         "ObjectType":  "RegistrySetting"
                                                     }

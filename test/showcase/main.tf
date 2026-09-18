@@ -212,18 +212,28 @@ resource "dryad_backup_gpo" "domain_gpo4" {
 }
 
 # Real DoD STIG baselines and custom Domain/DC hardening GPOs, exported from a separate
-# source domain as JSON (test/showcase/json_gpo/*.json). None of them need `replacements`
-# - every security principal they reference resolves automatically by name, via
-# dryad_group.right_dc_ura_sesystemprofileprivilege and .json_gpo_principals above.
+# source domain as JSON (test/showcase/json_gpo/*.json). Every security principal they
+# reference resolves automatically by name, via dryad_group.right_dc_ura_sesystemprofileprivilege
+# and .json_gpo_principals above; json_gpo_replacements below is only for the handful of
+# free-text ####key#### tokens (a "migtable" in the same sense as backup_gpo's migrations,
+# just plain text instead of typed entries) that automatic resolution can't cover.
 locals {
   json_gpo_files = fileset("${path.module}/json_gpo", "*.json")
+
+  json_gpo_replacements = {
+    "Domain - Domain Policy - v0r2.json" = {
+      "####DomainFQDN####" = data.dryad_domain.current.dns_root
+      "####DomainNB####"   = data.dryad_domain.current.netbios_name
+    }
+  }
 }
 
 resource "dryad_json_gpo" "imports" {
   for_each = local.json_gpo_files
 
-  path        = "${path.module}/json_gpo/${each.value}"
-  target_name = trimsuffix(each.value, ".json")
+  path         = "${path.module}/json_gpo/${each.value}"
+  target_name  = trimsuffix(each.value, ".json")
+  replacements = lookup(local.json_gpo_replacements, each.value, {})
 
   depends_on = [
     dryad_group.json_gpo_principals,
