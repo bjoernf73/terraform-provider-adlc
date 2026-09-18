@@ -5,7 +5,7 @@ A Terraform provider that manages **Active Directory** objects by executing
 
 There is no LDAP client. Every operation is a PowerShell script that runs on a host with
 the `ActiveDirectory` module — normally a domain controller — and returns a single JSON
-document that the provider decodes.
+document that the provider decodes. 
 
 ## Resources
 
