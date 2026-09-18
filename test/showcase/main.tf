@@ -144,6 +144,45 @@ resource "dryad_group" "right_dc_ura_sesystemprofileprivilege" {
   scope    = "Global"
 }
 
+# Security principals referenced by the json_gpo fixtures under test/showcase/json_gpo/
+# (see dry.module.ad's ####Replace[DOMAIN\Name] token convention): these GPOs resolve
+# each name automatically on import, so the groups just need to exist by name here.
+# Right-DC-URA-SeSystemProfilePrivilege above is already one of these; the rest follow.
+locals {
+  json_gpo_principal_groups = toset([
+    "Right-DC-BuiltinGroup-AccessControlAssistanceOperators",
+    "Right-DC-BuiltinGroup-BackupOperators",
+    "Right-DC-BuiltinGroup-CertificateServiceDCOMAccess",
+    "Right-DC-BuiltinGroup-CryptographicOperators",
+    "Right-DC-BuiltinGroup-DistributedCOMUsers",
+    "Right-DC-BuiltinGroup-EventLogReaders",
+    "Right-DC-BuiltinGroup-PerformanceLogUsers",
+    "Right-DC-BuiltinGroup-PerformanceMonitorUsers",
+    "Right-DC-BuiltinGroup-RemoteDesktopUsers",
+    "Right-DC-BuiltinGroup-RemoteManagementUsers",
+    "Right-DC-BuiltinGroup-Replicator",
+    "Right-DC-BuiltinGroup-TerminalServerLicenseServers",
+    "Right-DC-BuiltinGroup-WindowsAuthorizationAccessGroup",
+    "Right-DC-URA-SeAssignPrimaryTokenPrivilege",
+    "Right-DC-URA-SeDelegateSessionUserImpersonatePrivilege",
+    "Right-DC-URA-SeIncreaseQuotaPrivilege",
+    "Right-DC-URA-SeIncreaseWorkingSetPrivilege",
+    "Right-DC-URA-SeRelabelPrivilege",
+    "Right-DC-URA-SeRemoteShutdownPrivilege",
+    "Right-DC-URA-SeSecurityPrivilege",
+    "Right-DC-URA-SeShutdownPrivilege",
+  ])
+}
+
+resource "dryad_group" "json_gpo_principals" {
+  for_each = local.json_gpo_principal_groups
+
+  name     = each.value
+  path     = dryad_organizational_unit.child["Groups"].path
+  category = "Security"
+  scope    = "Global"
+}
+
 # Imported from a real GPMC backup (test/showcase/backup_gpo/Domain - GPO1); the
 # migration table entries map security principals baked into the backup by name, so
 # they resolve fresh in this domain instead of carrying over the source's SIDs.
