@@ -166,7 +166,8 @@ function Format-JsonGPOXml([xml]$Xml, [int]$Indent) {
     $xmlWriter.Flush()
     $stringWriter.Flush()
 
-    return $stringWriter.ToString()
+    # One array element per line, matching GroupPolicyPreference.XmlContent's shape.
+    return $stringWriter.ToString().Split("`r`n", [System.StringSplitOptions]::RemoveEmptyEntries)
 }
 
 # The GPO.cmt comment file is limited to 2047 characters, with each line break

@@ -10,6 +10,7 @@ const (
 	gpRegistryPolicyParser = "gpregistrypolicyparser.ps1"
 	jsonGPOCommon          = "json_gpo_common.ps1"
 	jsonGPOEnsure          = "json_gpo_ensure.ps1"
+	jsonGPOExportRead      = "json_gpo_export_read.ps1"
 )
 
 type JsonGPOInput struct {
@@ -86,4 +87,31 @@ func DeleteJsonGPO(ctx context.Context, c *client.Client, guid string) error {
 
 	var result map[string]any
 	return c.RunPowerShellJSON(ctx, script, &result)
+}
+
+// JsonGPOExport is the read-only mirror of JsonGPOInput: JSON describing a live GPO's
+// SYSVOL content, in the exact shape EnsureJsonGPO consumes.
+type JsonGPOExport struct {
+	Exists bool   `json:"exists"`
+	GUID   string `json:"guid"`
+	JSON   string `json:"json"`
+}
+
+// ExportJsonGPO reads a live GPO's SYSVOL content and relevant AD attributes and
+// renders them as JSON, the mirror image of EnsureJsonGPO: SIDs become
+// ####Replace[DOMAIN\Name] tokens here instead of being resolved from them.
+func ExportJsonGPO(ctx context.Context, c *client.Client, name string) (*JsonGPOExport, error) {
+	script, err := buildScript(c, map[string]any{
+		"name": name,
+	}, commonScript, backupGPOCommon, gpRegistryPolicyParser, jsonGPOCommon, jsonGPOExportRead)
+	if err != nil {
+		return nil, err
+	}
+
+	var result JsonGPOExport
+	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
