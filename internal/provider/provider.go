@@ -171,6 +171,7 @@ func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewUserResource,
 		NewUserPasswordResource,
 		NewBackupGPOResource,
+		NewJsonGPOResource,
 		NewGPOLinksResource,
 	}
 }

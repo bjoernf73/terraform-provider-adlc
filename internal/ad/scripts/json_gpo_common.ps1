@@ -177,3 +177,15 @@ function Test-JsonGPOCommentInSpec([string[]]$Lines) {
 
     return $count -le 2047
 }
+
+# Root SYSVOL path for a GPO's own folder. Uses the configured domain_controller when
+# set, so writes land on the same DC as the AD object update; falls back to the domain's
+# DFS namespace (\\<domain>\SYSVOL\...), which resolves to any available DC.
+function Get-JsonGPOSysvolPath([string]$PolicyGuid) {
+    $serverParams = Get-ServerParams
+    $domainDnsRoot = (Get-ADDomain @serverParams -ErrorAction Stop).DNSRoot
+    $sysvolHost = if ($payload.domain_controller) { [string]$payload.domain_controller } else { $domainDnsRoot }
+
+    return "\\$sysvolHost\SYSVOL\$domainDnsRoot\Policies\$PolicyGuid"
+}
+

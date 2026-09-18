@@ -3,7 +3,7 @@
 page_title: "dryad_backup_gpo Resource - dryad"
 subcategory: ""
 description: |-
-  Imports a GPMC backup GPO https://learn.microsoft.com/en-us/powershell/module/grouppolicy/backup-gpo into Active Directory via Import-GPO. This is one of two ways this provider manages GPOs: dryad_backup_gpo imports a folder produced by Backup-GPO (or the GPMC UI); dryad_json_gpo (not yet implemented) will build a GPO from a JSON description instead. Use dryad_backup_gpo when you already have (or can export) a working GPO to replicate across domains or environments.
+  Imports a GPMC backup GPO https://learn.microsoft.com/en-us/powershell/module/grouppolicy/backup-gpo into Active Directory via Import-GPO. This is one of two ways this provider manages GPOs: dryad_backup_gpo imports a folder produced by Backup-GPO (or the GPMC UI); dryad_json_gpo imports a JSON description instead. Use dryad_backup_gpo when you already have (or can export) a working GPO to replicate across domains or environments.
   The backup folder (path/backup_name/) is read from the machine running Terraform and uploaded to the target Windows host for every apply; the resource has no way to detect out-of-band changes to that folder between plans, so it re-imports whenever the folder contents or migrations change, detected via a content fingerprint.
   Import-GPO re-imports settings in place when target_name already exists, keeping the GPO's GUID and existing links, so updates never delete and recreate the GPO.
   A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the version recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match.
@@ -11,7 +11,7 @@ description: |-
 
 # dryad_backup_gpo (Resource)
 
-Imports a [GPMC backup GPO](https://learn.microsoft.com/en-us/powershell/module/grouppolicy/backup-gpo) into Active Directory via `Import-GPO`. This is one of two ways this provider manages GPOs: `dryad_backup_gpo` imports a folder produced by `Backup-GPO` (or the GPMC UI); `dryad_json_gpo` (not yet implemented) will build a GPO from a JSON description instead. Use `dryad_backup_gpo` when you already have (or can export) a working GPO to replicate across domains or environments.
+Imports a [GPMC backup GPO](https://learn.microsoft.com/en-us/powershell/module/grouppolicy/backup-gpo) into Active Directory via `Import-GPO`. This is one of two ways this provider manages GPOs: `dryad_backup_gpo` imports a folder produced by `Backup-GPO` (or the GPMC UI); `dryad_json_gpo` imports a JSON description instead. Use `dryad_backup_gpo` when you already have (or can export) a working GPO to replicate across domains or environments.
 
 The backup folder (`path/backup_name/`) is read from the machine running Terraform and uploaded to the target Windows host for every apply; the resource has no way to detect out-of-band changes to that folder between plans, so it re-imports whenever the folder contents or `migrations` change, detected via a content fingerprint.
 

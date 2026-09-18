@@ -70,9 +70,9 @@ func (r *backupGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Imports a [GPMC backup GPO](https://learn.microsoft.com/en-us/powershell/module/grouppolicy/backup-gpo) " +
 			"into Active Directory via `Import-GPO`. This is one of two ways this provider manages GPOs: `dryad_backup_gpo` " +
-			"imports a folder produced by `Backup-GPO` (or the GPMC UI); `dryad_json_gpo` (not yet implemented) will build a GPO " +
-			"from a JSON description instead. Use `dryad_backup_gpo` when you already have (or can export) a working GPO to " +
-			"replicate across domains or environments.\n\n" +
+			"imports a folder produced by `Backup-GPO` (or the GPMC UI); `dryad_json_gpo` imports a JSON description instead. " +
+			"Use `dryad_backup_gpo` when you already have (or can export) a working GPO to replicate across domains or " +
+			"environments.\n\n" +
 			"The backup folder (`path/backup_name/`) is read from the machine running Terraform and uploaded to the target " +
 			"Windows host for every apply; the resource has no way to detect out-of-band changes to that folder between plans, " +
 			"so it re-imports whenever the folder contents or `migrations` change, detected via a content fingerprint.\n\n" +

@@ -211,6 +211,26 @@ resource "dryad_backup_gpo" "domain_gpo4" {
   target_name = "Domain - GPO4"
 }
 
+# Real DoD STIG baselines and custom Domain/DC hardening GPOs, exported from a separate
+# source domain as JSON (test/showcase/json_gpo/*.json). None of them need `replacements`
+# - every security principal they reference resolves automatically by name, via
+# dryad_group.right_dc_ura_sesystemprofileprivilege and .json_gpo_principals above.
+locals {
+  json_gpo_files = fileset("${path.module}/json_gpo", "*.json")
+}
+
+resource "dryad_json_gpo" "imports" {
+  for_each = local.json_gpo_files
+
+  path        = "${path.module}/json_gpo/${each.value}"
+  target_name = trimsuffix(each.value, ".json")
+
+  depends_on = [
+    dryad_group.json_gpo_principals,
+    dryad_group.right_dc_ura_sesystemprofileprivilege,
+  ]
+}
+
 # Nested membership.
 resource "dryad_group_member" "operators_in_admins" {
   group  = dryad_group.admins.id
@@ -356,6 +376,12 @@ output "backup_gpos" {
   value = {
     domain_gpo1 = { id = dryad_backup_gpo.domain_gpo1.id, dn = dryad_backup_gpo.domain_gpo1.distinguished_name }
     domain_gpo4 = { id = dryad_backup_gpo.domain_gpo4.id, dn = dryad_backup_gpo.domain_gpo4.distinguished_name }
+  }
+}
+
+output "json_gpos" {
+  value = {
+    for key, gpo in dryad_json_gpo.imports : key => { id = gpo.id, dn = gpo.distinguished_name }
   }
 }
 
