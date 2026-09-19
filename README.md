@@ -1,7 +1,8 @@
-# terraform-provider-dryad
+# terraform-provider-adlc
 
-A Terraform provider that manages **Active Directory** objects by executing
-**PowerShell 7** on a remote Windows host over **WinRM** or **SSH**.
+A Terraform **Active Directory Lifecycle** provider that manages Active Directory
+objects and policy through **PowerShell 7** on a remote Windows host over **WinRM**
+or **SSH**.
 
 There is no LDAP client. Every operation is a PowerShell script that runs on a host with
 the `ActiveDirectory` module — normally a domain controller — and returns a single JSON
@@ -11,30 +12,30 @@ document that the provider decodes.
 
 | Resource | Manages |
 | --- | --- |
-| `dryad_organizational_unit` | Organizational units, creating missing parents on demand |
-| `dryad_group` | Groups, including rename and move |
-| `dryad_group_member` | A single group membership |
-| `dryad_user` | User accounts, including rename and move. Passwords are not managed here. |
-| `dryad_user_password` | Sets a user's initial password, generated or supplied |
-| `dryad_access_rule` | A single access control entry (ACE) on any directory object |
-| `dryad_backup_gpo` | Imports a `Backup-GPO` folder into a GPO |
-| `dryad_json_gpo` | Imports a JSON-described GPO |
-| `dryad_gpo_links` | The full, ordered set of GPO links on an OU, domain or site |
-| `dryad_wmi_filter` | A WMI filter (`msWMI-Som` object) |
-| `dryad_gpo_wmi_filter` | The WMI filter assigned to a single GPO |
-| `dryad_gpo_permission` | One trustee's named Group Policy permission |
-| `dryad_gpo_security_filter` | The complete set of principals allowed to apply one GPO |
-| `dryad_netlogon_files` | A Terraform-owned file tree below NETLOGON |
-| `dryad_administrative_templates` | A Terraform-owned file tree at the Central Store root |
-| `dryad_site` | An Active Directory replication site |
-| `dryad_subnet` | A CIDR network assigned to an Active Directory site |
+| `adlc_organizational_unit` | Organizational units, creating missing parents on demand |
+| `adlc_group` | Groups, including rename and move |
+| `adlc_group_member` | A single group membership |
+| `adlc_user` | User accounts, including rename and move. Passwords are not managed here. |
+| `adlc_user_password` | Sets a user's initial password, generated or supplied |
+| `adlc_access_rule` | A single access control entry (ACE) on any directory object |
+| `adlc_backup_gpo` | Imports a `Backup-GPO` folder into a GPO |
+| `adlc_json_gpo` | Imports a JSON-described GPO |
+| `adlc_gpo_links` | The full, ordered set of GPO links on an OU, domain or site |
+| `adlc_wmi_filter` | A WMI filter (`msWMI-Som` object) |
+| `adlc_gpo_wmi_filter` | The WMI filter assigned to a single GPO |
+| `adlc_gpo_permission` | One trustee's named Group Policy permission |
+| `adlc_gpo_security_filter` | The complete set of principals allowed to apply one GPO |
+| `adlc_netlogon_files` | A Terraform-owned file tree below NETLOGON |
+| `adlc_administrative_templates` | A Terraform-owned file tree at the Central Store root |
+| `adlc_site` | An Active Directory replication site |
+| `adlc_subnet` | A CIDR network assigned to an Active Directory site |
 
 ## Data sources
 
 | Data source | Reads |
 | --- | --- |
-| `dryad_domain` | The connected domain: DN, DNS root, NetBIOS name, well-known containers |
-| `dryad_json_gpo_export` | A live GPO's SYSVOL content, as JSON |
+| `adlc_domain` | The connected domain: DN, DNS root, NetBIOS name, well-known containers |
+| `adlc_json_gpo_export` | A live GPO's SYSVOL content, as JSON |
 
 ## Documentation
 
@@ -64,13 +65,13 @@ make docs
 ```hcl
 terraform {
   required_providers {
-    dryad = {
-      source = "henrikhalt/dryad"
+    adlc = {
+      source = "henrikhalt/adlc"
     }
   }
 }
 
-provider "dryad" {
+provider "adlc" {
   transport       = "winrm"
   host            = "dc1.contoso.local"
   username        = "CONTOSO\\terraform"
@@ -79,20 +80,20 @@ provider "dryad" {
   powershell_path = "pwsh"
 }
 
-resource "dryad_organizational_unit" "servers" {
+resource "adlc_organizational_unit" "servers" {
   path        = "Contoso/Servers/Windows"
   description = "Windows server OU"
 }
 
-resource "dryad_group" "server_admins" {
+resource "adlc_group" "server_admins" {
   name  = "Server Admins"
   path  = "Contoso/Groups"
   scope = "DomainLocal"
 }
 
-resource "dryad_access_rule" "delegate_computers" {
-  target                = dryad_organizational_unit.servers.distinguished_name
-  trustee               = dryad_group.server_admins.sid
+resource "adlc_access_rule" "delegate_computers" {
+  target                = adlc_organizational_unit.servers.distinguished_name
+  trustee               = adlc_group.server_admins.sid
   rights                = ["CreateChild", "DeleteChild"]
   object_type           = "computer"
   inherited_object_type = "organizationalUnit"
@@ -137,6 +138,6 @@ from CI over both transports. See [.gitlab-ci.yml](.gitlab-ci.yml).
 A manual transport check, for when CI is too slow a feedback loop:
 
 ```sh
-DRYAD_HOST=10.0.13.6 DRYAD_USERNAME='CONTOSO\Administrator' DRYAD_PASSWORD=... \
+ADLC_HOST=10.0.13.6 ADLC_USERNAME='CONTOSO\Administrator' ADLC_PASSWORD=... \
   go test ./internal/transport -run TestWinRMSmoke -v
 ```

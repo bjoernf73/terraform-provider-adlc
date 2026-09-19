@@ -1,4 +1,4 @@
-module github.com/henrikhalt/terraform-provider-dryad
+module github.com/henrikhalt/terraform-provider-adlc
 
 go 1.25.0
 

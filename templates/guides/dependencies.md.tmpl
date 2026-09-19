@@ -20,20 +20,20 @@ explains most ordering failures.
 ## Order in the file means nothing
 
 ```hcl
-resource "dryad_group" "a" {
+resource "adlc_group" "a" {
   name       = "GroupA"
   path       = "Contoso/Groups"
-  managed_by = dryad_group.b.id
+  managed_by = adlc_group.b.id
 }
 
-resource "dryad_group" "b" {
+resource "adlc_group" "b" {
   name = "GroupB"
   path = "Contoso/Groups"
 }
 ```
 
-`dryad_group.b` is created first, despite being written second, because
-`dryad_group.a` refers to it. Moving the blocks around, or splitting them across files,
+`adlc_group.b` is created first, despite being written second, because
+`adlc_group.a` refers to it. Moving the blocks around, or splitting them across files,
 changes nothing.
 
 Terraform applies the reverse order on destroy, so `GroupA` is removed before `GroupB`.
@@ -43,13 +43,13 @@ Terraform applies the reverse order on destroy, so `GroupA` is removed before `G
 This is the same configuration with one character changed, and it is a race:
 
 ```hcl
-resource "dryad_group" "a" {
+resource "adlc_group" "a" {
   name       = "GroupA"
   path       = "Contoso/Groups"
   managed_by = "GroupB" # a string, not a reference
 }
 
-resource "dryad_group" "b" {
+resource "adlc_group" "b" {
   name = "GroupB"
   path = "Contoso/Groups"
 }
@@ -76,18 +76,18 @@ it, the cause is almost always a literal name where a reference belongs.
 Prefer a reference, which also keeps working if the referenced object is renamed:
 
 ```hcl
-managed_by = dryad_group.b.id
+managed_by = adlc_group.b.id
 ```
 
 When the value genuinely has to stay a literal — because the object is not managed by
 this configuration, or it would create a cycle — declare the edge explicitly:
 
 ```hcl
-resource "dryad_group" "a" {
+resource "adlc_group" "a" {
   name       = "GroupA"
   managed_by = "GroupB"
 
-  depends_on = [dryad_group.b]
+  depends_on = [adlc_group.b]
 }
 ```
 
@@ -100,20 +100,20 @@ Every attribute that names another directory object behaves this way:
 
 | Attribute | Accepts |
 | --- | --- |
-| `dryad_group.managed_by` | DN, `objectGUID`, SID, `DOMAIN\name`, `sAMAccountName` |
-| `dryad_group_member.group` | the same forms |
-| `dryad_group_member.member` | the same forms |
-| `dryad_access_rule.trustee` | the same forms, plus well-known names |
-| `dryad_access_rule.target` | a path or DN, see [Paths and distinguished names](paths) |
+| `adlc_group.managed_by` | DN, `objectGUID`, SID, `DOMAIN\name`, `sAMAccountName` |
+| `adlc_group_member.group` | the same forms |
+| `adlc_group_member.member` | the same forms |
+| `adlc_access_rule.trustee` | the same forms, plus well-known names |
+| `adlc_access_rule.target` | a path or DN, see [Paths and distinguished names](paths) |
 
 Because all of them accept plain strings, all of them can silently lose an edge. Useful
 attributes to reference instead:
 
 ```hcl
-group   = dryad_group.admins.id                              # objectGUID
-trustee = dryad_group.admins.sid                             # SID
-target  = dryad_organizational_unit.servers.distinguished_name
-member  = dryad_group.operators.id
+group   = adlc_group.admins.id                              # objectGUID
+trustee = adlc_group.admins.sid                             # SID
+target  = adlc_organizational_unit.servers.distinguished_name
+member  = adlc_group.operators.id
 ```
 
 ## Objects outside the configuration
@@ -121,14 +121,14 @@ member  = dryad_group.operators.id
 A literal is correct when the object is not managed by Terraform:
 
 ```hcl
-resource "dryad_access_rule" "authenticated_read" {
-  target  = dryad_organizational_unit.servers.distinguished_name
+resource "adlc_access_rule" "authenticated_read" {
+  target  = adlc_organizational_unit.servers.distinguished_name
   trustee = "Authenticated Users" # well-known, always exists
   rights  = ["GenericRead"]
 }
 
-resource "dryad_group_member" "service_account" {
-  group  = dryad_group.admins.id
+resource "adlc_group_member" "service_account" {
+  group  = adlc_group.admins.id
   member = "svc-backup" # created by another process
 }
 ```
@@ -138,18 +138,18 @@ when the apply runs, otherwise resolution fails with the same error as above.
 
 ## Containers must exist first
 
-`dryad_group` and `dryad_access_rule` require their container or target to exist;
-only `dryad_organizational_unit` creates missing parents along its path. Referencing the
+`adlc_group` and `adlc_access_rule` require their container or target to exist;
+only `adlc_organizational_unit` creates missing parents along its path. Referencing the
 OU rather than repeating its path gets both the correct value and the ordering:
 
 ```hcl
-resource "dryad_organizational_unit" "groups" {
+resource "adlc_organizational_unit" "groups" {
   path = "Contoso/Groups"
 }
 
-resource "dryad_group" "admins" {
+resource "adlc_group" "admins" {
   name = "Admins"
-  path = dryad_organizational_unit.groups.path # edge, and no duplicated string
+  path = adlc_organizational_unit.groups.path # edge, and no duplicated string
 }
 ```
 
@@ -161,33 +161,33 @@ it works, but nothing guarantees the OU is created first.
 Terraform refuses to plan a configuration whose references form a loop:
 
 ```
-Error: Cycle: dryad_group.a, dryad_group.b
+Error: Cycle: adlc_group.a, adlc_group.b
 ```
 
 Two groups managing each other is the obvious case:
 
 ```hcl
-resource "dryad_group" "a" {
-  managed_by = dryad_group.b.id
+resource "adlc_group" "a" {
+  managed_by = adlc_group.b.id
 }
 
-resource "dryad_group" "b" {
-  managed_by = dryad_group.a.id # cycle
+resource "adlc_group" "b" {
+  managed_by = adlc_group.a.id # cycle
 }
 ```
 
 Break it by making one side a literal with an explicit dependency:
 
 ```hcl
-resource "dryad_group" "a" {
+resource "adlc_group" "a" {
   name       = "GroupA"
-  managed_by = dryad_group.b.id
+  managed_by = adlc_group.b.id
 }
 
-resource "dryad_group" "b" {
+resource "adlc_group" "b" {
   name       = "GroupB"
   managed_by = "GroupA"
-  depends_on = [dryad_group.a]
+  depends_on = [adlc_group.a]
 }
 ```
 
@@ -201,18 +201,18 @@ Delegating rights on an OU to a group that lives inside that same OU looks circu
 is not, provided the access rule is its own resource:
 
 ```hcl
-resource "dryad_organizational_unit" "servers" {
+resource "adlc_organizational_unit" "servers" {
   path = "Contoso/Servers"
 }
 
-resource "dryad_group" "server_admins" {
+resource "adlc_group" "server_admins" {
   name = "Server Admins"
-  path = dryad_organizational_unit.servers.path # group depends on OU
+  path = adlc_organizational_unit.servers.path # group depends on OU
 }
 
-resource "dryad_access_rule" "delegate" {
-  target  = dryad_organizational_unit.servers.distinguished_name
-  trustee = dryad_group.server_admins.sid # rule depends on both
+resource "adlc_access_rule" "delegate" {
+  target  = adlc_organizational_unit.servers.distinguished_name
+  trustee = adlc_group.server_admins.sid # rule depends on both
   rights  = ["CreateChild", "DeleteChild"]
 }
 ```
@@ -234,7 +234,7 @@ terraform graph | dot -Tsvg > graph.svg
 Or, for a specific resource, check what a plan says it must create first:
 
 ```sh
-terraform plan -target=dryad_group.admins
+terraform plan -target=adlc_group.admins
 ```
 
 If an object you expected to be created first is missing from that plan, the edge is

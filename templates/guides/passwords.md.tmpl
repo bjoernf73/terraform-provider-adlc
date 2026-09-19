@@ -2,13 +2,13 @@
 page_title: "User passwords and secret storage"
 subcategory: "Guides"
 description: |-
-  How dryad_user_password sets an initial password, and why storing it in Vault is a
+  How adlc_user_password sets an initial password, and why storing it in Vault is a
   separate provider's job.
 ---
 
 # User passwords and secret storage
 
-`dryad_user` deliberately has no password attribute. `dryad_user_password` is a separate
+`adlc_user` deliberately has no password attribute. `adlc_user_password` is a separate
 resource that sets a user's initial password — generated randomly, or supplied from
 somewhere else — and this guide covers both that resource and where it stops.
 
@@ -18,54 +18,54 @@ A password's lifecycle does not match an account's. The account's attributes
 (`department`, `title`, group memberships, and so on) are reconciled on every plan; a
 password must never be silently reset just because a plan ran. Keeping them in one
 resource would mean either re-setting the password on unrelated changes, or teaching
-`dryad_user` special-case logic to avoid it. A separate, create-only resource sidesteps
-this entirely: every attribute of `dryad_user_password` requires replacement, so it either
+`adlc_user` special-case logic to avoid it. A separate, create-only resource sidesteps
+this entirely: every attribute of `adlc_user_password` requires replacement, so it either
 does nothing or deliberately sets a new password — never a silent side effect.
 
 ## Why this provider does not talk to Vault
 
 Terraform already has a mature `hashicorp/vault` provider with proper authentication
 (AppRole, Kubernetes, token, and more) and resources such as `vault_kv_secret_v2` for
-exactly this purpose. Building Vault access into `dryad_user_password` would mean:
+exactly this purpose. Building Vault access into `adlc_user_password` would mean:
 
 - duplicating Vault's authentication handling inside this provider,
 - giving this provider credentials to a second system beyond Active Directory, and
 - coupling two otherwise independent systems' release cycles together.
 
-Instead, `dryad_user_password` does one thing: it sets a password on an AD account and
+Instead, `adlc_user_password` does one thing: it sets a password on an AD account and
 returns it as a sensitive output. Getting that value into Vault — or anywhere else — is
 composition, done with the `vault` provider in the same configuration.
 
 ## Generating a password and storing it in Vault
 
 ```hcl
-resource "dryad_user" "jdoe" {
+resource "adlc_user" "jdoe" {
   name                = "John Doe"
   sam_account_name    = "jdoe"
   user_principal_name = "jdoe@contoso.local"
   path                = "Contoso/Users"
 
-  # Left false: dryad_user_password enables the account once a password exists.
+  # Left false: adlc_user_password enables the account once a password exists.
   enabled = false
 }
 
-resource "dryad_user_password" "jdoe" {
-  user = dryad_user.jdoe.id
+resource "adlc_user_password" "jdoe" {
+  user = adlc_user.jdoe.id
 }
 
 resource "vault_kv_secret_v2" "jdoe" {
   mount = "secret"
   name  = "ad/users/jdoe"
   data_json = jsonencode({
-    username = dryad_user.jdoe.sam_account_name
-    password = dryad_user_password.jdoe.password
+    username = adlc_user.jdoe.sam_account_name
+    password = adlc_user_password.jdoe.password
   })
 }
 ```
 
-`dryad_user_password.jdoe.password` is marked sensitive on both sides of that reference,
+`adlc_user_password.jdoe.password` is marked sensitive on both sides of that reference,
 so it never appears in plan output — but it is present in Terraform state, on both the
-`dryad_user_password` resource and the `vault_kv_secret_v2` resource. State encryption
+`adlc_user_password` resource and the `vault_kv_secret_v2` resource. State encryption
 and access control are yours to manage, the same as for any other sensitive value
 Terraform handles; this is not specific to passwords.
 
@@ -84,7 +84,7 @@ data "vault_kv_secret_v2" "jsmith" {
   name  = "ad/users/jsmith"
 }
 
-resource "dryad_user" "jsmith" {
+resource "adlc_user" "jsmith" {
   name                = "Jane Smith"
   sam_account_name    = "jsmith"
   user_principal_name = "jsmith@contoso.local"
@@ -92,8 +92,8 @@ resource "dryad_user" "jsmith" {
   enabled             = false
 }
 
-resource "dryad_user_password" "jsmith" {
-  user                = dryad_user.jsmith.id
+resource "adlc_user_password" "jsmith" {
+  user                = adlc_user.jsmith.id
   password_wo         = data.vault_kv_secret_v2.jsmith.data["password"]
   password_wo_version = 1
 }
@@ -116,28 +116,28 @@ persisted.
 
 ## Enabling the account
 
-`dryad_user.enabled` and `dryad_user_password.enable_account` overlap on purpose, but
+`adlc_user.enabled` and `adlc_user_password.enable_account` overlap on purpose, but
 only one should be `true` in a given configuration:
 
-- If `dryad_user_password` manages the password, leave `dryad_user.enabled = false` and
+- If `adlc_user_password` manages the password, leave `adlc_user.enabled = false` and
   let `enable_account` (default `true`) enable the account once the password is set.
-- If a user's password is managed entirely outside Terraform, `dryad_user.enabled` is the
-  right place to control it and `dryad_user_password` should not be used at all.
+- If a user's password is managed entirely outside Terraform, `adlc_user.enabled` is the
+  right place to control it and `adlc_user_password` should not be used at all.
 
-Setting `dryad_user.enabled = true` with no `dryad_user_password` resource fails at apply
+Setting `adlc_user.enabled = true` with no `adlc_user_password` resource fails at apply
 time, because `New-ADUser`/`Set-ADUser -Enabled $true` refuses an account with no
 password — which is Active Directory correctly rejecting an account that could never log
 on, not a bug in this provider.
 
 ## Rotation
 
-`dryad_user_password` never rotates a password on its own; every attribute requires
+`adlc_user_password` never rotates a password on its own; every attribute requires
 replacement, so nothing changes unless the configuration does. To force a deliberate
 rotation, change a value in `keepers`:
 
 ```hcl
-resource "dryad_user_password" "jdoe" {
-  user = dryad_user.jdoe.id
+resource "adlc_user_password" "jdoe" {
+  user = adlc_user.jdoe.id
 
   keepers = {
     rotation = var.rotation_marker
@@ -147,7 +147,7 @@ resource "dryad_user_password" "jdoe" {
 
 Changing `var.rotation_marker` replaces the resource: a new password is generated (or the
 new `password` value applied), and `vault_kv_secret_v2.jdoe` picks up the new value on the
-same apply, since it references `dryad_user_password.jdoe.password` directly.
+same apply, since it references `adlc_user_password.jdoe.password` directly.
 
 ## Detecting drift without resetting anything
 
@@ -172,4 +172,4 @@ respond (e.g. by rotating via `keepers` or `password_wo_version`) is left to you
 - **`terraform destroy` changes nothing on the account.** Destroying this resource only
   stops Terraform from tracking the password; the account keeps whatever password and
   enabled state it had. Disabling or resetting an account you no longer want is
-  `dryad_user`'s job, not this resource's.
+  `adlc_user`'s job, not this resource's.

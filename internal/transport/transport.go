@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
 )
 
 type Result struct {

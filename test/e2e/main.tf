@@ -2,14 +2,14 @@ terraform {
   required_version = ">= 1.6.0"
 
   required_providers {
-    dryad = {
-      source  = "henrikhalt/dryad"
+    adlc = {
+      source  = "henrikhalt/adlc"
       version = "0.0.0-ci"
     }
   }
 }
 
-provider "dryad" {
+provider "adlc" {
   transport       = var.transport
   host            = var.host
   port            = var.port
@@ -22,59 +22,59 @@ provider "dryad" {
   timeout_seconds = var.timeout_seconds
 }
 
-data "dryad_domain" "current" {}
+data "adlc_domain" "current" {}
 
-resource "dryad_organizational_unit" "smoke" {
+resource "adlc_organizational_unit" "smoke" {
   path           = var.ou_path
   description    = var.ou_description
   delete_subtree = true
 }
 
-resource "dryad_group" "smoke" {
+resource "adlc_group" "smoke" {
   name         = var.group_name
-  path         = dryad_organizational_unit.smoke.path
+  path         = adlc_organizational_unit.smoke.path
   description  = var.ou_description
   display_name = "${var.group_name} (CI)"
-  info         = "Created by the terraform-provider-dryad pipeline."
+  info         = "Created by the terraform-provider-adlc pipeline."
   managed_by   = "Administrator"
   category     = "Security"
   scope        = "Global"
 }
 
 output "id" {
-  value = dryad_organizational_unit.smoke.id
+  value = adlc_organizational_unit.smoke.id
 }
 
 output "distinguished_name" {
-  value = dryad_organizational_unit.smoke.distinguished_name
+  value = adlc_organizational_unit.smoke.distinguished_name
 }
 
 output "name" {
-  value = dryad_organizational_unit.smoke.name
+  value = adlc_organizational_unit.smoke.name
 }
 
 output "group_id" {
-  value = dryad_group.smoke.id
+  value = adlc_group.smoke.id
 }
 
 output "group_distinguished_name" {
-  value = dryad_group.smoke.distinguished_name
+  value = adlc_group.smoke.distinguished_name
 }
 
 output "group_sid" {
-  value = dryad_group.smoke.sid
+  value = adlc_group.smoke.sid
 }
 
 output "group_managed_by_dn" {
-  value = dryad_group.smoke.managed_by_dn
+  value = adlc_group.smoke.managed_by_dn
 }
 
 # Delegates computer management on the OU to the group stored inside it, which is the
 # dependency shape that a nested acl attribute could not express without a cycle.
 # Constructor 6: object_type + inheritance + inherited_object_type.
-resource "dryad_access_rule" "smoke" {
-  target                = dryad_organizational_unit.smoke.distinguished_name
-  trustee               = dryad_group.smoke.sid
+resource "adlc_access_rule" "smoke" {
+  target                = adlc_organizational_unit.smoke.distinguished_name
+  trustee               = adlc_group.smoke.sid
   rights                = ["CreateChild", "DeleteChild"]
   access                = "Allow"
   object_type           = "computer"
@@ -83,45 +83,45 @@ resource "dryad_access_rule" "smoke" {
 }
 
 output "access_rule_id" {
-  value = dryad_access_rule.smoke.id
+  value = adlc_access_rule.smoke.id
 }
 
 output "access_rule_trustee_sid" {
-  value = dryad_access_rule.smoke.trustee_sid
+  value = adlc_access_rule.smoke.trustee_sid
 }
 
 # A second group, nested into the first, exercises group membership.
-resource "dryad_group" "smoke_member" {
+resource "adlc_group" "smoke_member" {
   name  = "${var.group_name}-member"
-  path  = dryad_organizational_unit.smoke.path
+  path  = adlc_organizational_unit.smoke.path
   scope = "Global"
 }
 
-resource "dryad_group_member" "smoke" {
-  group  = dryad_group.smoke.id
-  member = dryad_group.smoke_member.id
+resource "adlc_group_member" "smoke" {
+  group  = adlc_group.smoke.id
+  member = adlc_group.smoke_member.id
 }
 
 output "group_member_id" {
-  value = dryad_group_member.smoke.id
+  value = adlc_group_member.smoke.id
 }
 
 # Security principal referenced by the "Domain - GPO2" backup's migration table (see
-# dryad_backup_gpo.domain_gpo2 below); its restricted-groups setting resolves this by
+# adlc_backup_gpo.domain_gpo2 below); its restricted-groups setting resolves this by
 # name in the target domain. Its name is a fixed literal (it must match the migration
 # table), so only one transport job creates it - ssh and winrm run in parallel within
 # the same pipeline, and sAMAccountName uniqueness is domain-wide, not per-OU.
-resource "dryad_group" "right_adm_builtingroup_remotedesktopusers" {
+resource "adlc_group" "right_adm_builtingroup_remotedesktopusers" {
   count = var.transport == "ssh" ? 1 : 0
 
   name     = "Right-ADM-BuiltinGroup-RemoteDesktopUsers"
-  path     = dryad_organizational_unit.smoke.path
+  path     = adlc_organizational_unit.smoke.path
   category = "Security"
   scope    = "Global"
 }
 
 output "right_adm_builtingroup_remotedesktopusers_sid" {
-  value = try(dryad_group.right_adm_builtingroup_remotedesktopusers[0].sid, null)
+  value = try(adlc_group.right_adm_builtingroup_remotedesktopusers[0].sid, null)
 }
 
 # GPO display names aren't namespaced per job like the OU/group/user fixtures above, so
@@ -131,7 +131,7 @@ output "right_adm_builtingroup_remotedesktopusers_sid" {
 # Imported from a real GPMC backup (test/e2e/backup_gpo/Domain - GPO2); the migration
 # table mixes same_as_source (resolve fresh by name) with an explicit destination built
 # from the target domain, for the one entry we want redirected rather than re-resolved.
-resource "dryad_backup_gpo" "domain_gpo2" {
+resource "adlc_backup_gpo" "domain_gpo2" {
   count = var.transport == "ssh" ? 1 : 0
 
   backup_name = "Domain - GPO2"
@@ -143,17 +143,17 @@ resource "dryad_backup_gpo" "domain_gpo2" {
     {
       type        = "LocalGroup"
       source      = "Right-ADM-BuiltinGroup-RemoteDesktopUsers@utv.local"
-      destination = "Right-ADM-BuiltinGroup-RemoteDesktopUsers@${data.dryad_domain.current.dns_root}"
+      destination = "Right-ADM-BuiltinGroup-RemoteDesktopUsers@${data.adlc_domain.current.dns_root}"
     },
     { type = "UniversalGroup", source = "Enterprise Admins@utv.local", same_as_source = true },
     { type = "GlobalGroup", source = "Domain Admins@utv.local", same_as_source = true },
   ]
 
-  depends_on = [dryad_group.right_adm_builtingroup_remotedesktopusers]
+  depends_on = [adlc_group.right_adm_builtingroup_remotedesktopusers]
 }
 
 # Imported as-is: no migration table for "Domain - GPO3".
-resource "dryad_backup_gpo" "domain_gpo3" {
+resource "adlc_backup_gpo" "domain_gpo3" {
   count = var.transport == "ssh" ? 1 : 0
 
   backup_name = "Domain - GPO3"
@@ -163,90 +163,90 @@ resource "dryad_backup_gpo" "domain_gpo3" {
 
 output "backup_gpos" {
   value = {
-    domain_gpo2 = try({ id = dryad_backup_gpo.domain_gpo2[0].id, dn = dryad_backup_gpo.domain_gpo2[0].distinguished_name }, null)
-    domain_gpo3 = try({ id = dryad_backup_gpo.domain_gpo3[0].id, dn = dryad_backup_gpo.domain_gpo3[0].distinguished_name }, null)
+    domain_gpo2 = try({ id = adlc_backup_gpo.domain_gpo2[0].id, dn = adlc_backup_gpo.domain_gpo2[0].distinguished_name }, null)
+    domain_gpo3 = try({ id = adlc_backup_gpo.domain_gpo3[0].id, dn = adlc_backup_gpo.domain_gpo3[0].distinguished_name }, null)
   }
 }
 
 output "domain_dn" {
-  value = data.dryad_domain.current.distinguished_name
+  value = data.adlc_domain.current.distinguished_name
 }
 
 output "domain_netbios_name" {
-  value = data.dryad_domain.current.netbios_name
+  value = data.adlc_domain.current.netbios_name
 }
 
 # A relative DN target: the well-known Computers container is a CN, not an OU.
 # Constructor 5: object_type + inheritance, no inherited_object_type.
-resource "dryad_access_rule" "smoke_container" {
+resource "adlc_access_rule" "smoke_container" {
   target      = "CN=Computers"
-  trustee     = dryad_group.smoke.sid
+  trustee     = adlc_group.smoke.sid
   rights      = ["ReadProperty"]
   object_type = "All"
   inheritance = "Descendents"
 }
 
 output "access_rule_container_target_dn" {
-  value = dryad_access_rule.smoke_container.target_dn
+  value = adlc_access_rule.smoke_container.target_dn
 }
 
 # The remaining four constructors from the access rules guide, exercised against the
-# second group so every ACE key stays unique alongside dryad_access_rule.smoke above.
+# second group so every ACE key stays unique alongside adlc_access_rule.smoke above.
 
 # Constructor 1: rights on the object itself. Uses a different trustee than constructor 2:
 # the same trustee + same rights with inheritance=All would make this ACE a strict subset
 # of that one (All already covers the object itself, not just descendants), and Windows
 # canonicalizes the redundant narrower ACE away.
-resource "dryad_access_rule" "constructor1_object_only" {
-  target  = dryad_organizational_unit.smoke.distinguished_name
-  trustee = dryad_group.smoke.sid
+resource "adlc_access_rule" "constructor1_object_only" {
+  target  = adlc_organizational_unit.smoke.distinguished_name
+  trustee = adlc_group.smoke.sid
   rights  = ["GenericRead"]
 }
 
 # Constructor 2: rights inherited by every descendant.
-resource "dryad_access_rule" "constructor2_all_descendants" {
-  target      = dryad_organizational_unit.smoke.distinguished_name
-  trustee     = dryad_group.smoke_member.sid
+resource "adlc_access_rule" "constructor2_all_descendants" {
+  target      = adlc_organizational_unit.smoke.distinguished_name
+  trustee     = adlc_group.smoke_member.sid
   rights      = ["GenericRead"]
   inheritance = "All"
 }
 
 # Constructor 3: rights inherited by one class of descendant.
-resource "dryad_access_rule" "constructor3_one_class_descendants" {
-  target                = dryad_organizational_unit.smoke.distinguished_name
-  trustee               = dryad_group.smoke_member.sid
+resource "adlc_access_rule" "constructor3_one_class_descendants" {
+  target                = adlc_organizational_unit.smoke.distinguished_name
+  trustee               = adlc_group.smoke_member.sid
   rights                = ["GenericRead"]
   inheritance           = "Descendents"
   inherited_object_type = "user"
 }
 
 # Constructor 4: rights on one class of child object, this object only.
-resource "dryad_access_rule" "constructor4_one_class_here" {
-  target      = dryad_organizational_unit.smoke.distinguished_name
-  trustee     = dryad_group.smoke_member.sid
+resource "adlc_access_rule" "constructor4_one_class_here" {
+  target      = adlc_organizational_unit.smoke.distinguished_name
+  trustee     = adlc_group.smoke_member.sid
   rights      = ["CreateChild", "DeleteChild"]
   object_type = "computer"
 }
 
 output "access_rule_constructors" {
   value = {
-    "1_object_only"           = dryad_access_rule.constructor1_object_only.id
-    "2_all_descendants"       = dryad_access_rule.constructor2_all_descendants.id
-    "3_one_class_descendants" = dryad_access_rule.constructor3_one_class_descendants.id
-    "4_one_class_here"        = dryad_access_rule.constructor4_one_class_here.id
-    "5_one_class_propagated"  = dryad_access_rule.smoke_container.id
-    "6_extended_right"        = dryad_access_rule.smoke.id
+    "1_object_only"           = adlc_access_rule.constructor1_object_only.id
+    "2_all_descendants"       = adlc_access_rule.constructor2_all_descendants.id
+    "3_one_class_descendants" = adlc_access_rule.constructor3_one_class_descendants.id
+    "4_one_class_here"        = adlc_access_rule.constructor4_one_class_here.id
+    "5_one_class_propagated"  = adlc_access_rule.smoke_container.id
+    "6_extended_right"        = adlc_access_rule.smoke.id
   }
 }
 
-resource "dryad_user" "smoke" {
+resource "adlc_user" "smoke" {
   name = "${var.group_name}-user"
   # sAMAccountName has a hard 20 character limit; group_name already varies in length
   # by transport name and pipeline id, so truncate rather than risk "not a properly
   # formed account name" on a long combination.
   sam_account_name    = substr("${var.group_name}-usr", 0, 20)
-  user_principal_name = "${substr("${var.group_name}-usr", 0, 20)}@${data.dryad_domain.current.dns_root}"
-  path                = dryad_organizational_unit.smoke.path
+  user_principal_name = "${substr("${var.group_name}-usr", 0, 20)}@${data.adlc_domain.current.dns_root}"
+  path                = adlc_organizational_unit.smoke.path
   description         = var.ou_description
   display_name        = "${var.group_name} (CI)"
   given_name          = "CI"
@@ -257,19 +257,19 @@ resource "dryad_user" "smoke" {
 }
 
 output "user_id" {
-  value = dryad_user.smoke.id
+  value = adlc_user.smoke.id
 }
 
 output "user_distinguished_name" {
-  value = dryad_user.smoke.distinguished_name
+  value = adlc_user.smoke.distinguished_name
 }
 
 output "user_manager_dn" {
-  value = dryad_user.smoke.manager_dn
+  value = adlc_user.smoke.manager_dn
 }
 
-resource "dryad_user_password" "smoke" {
-  user   = dryad_user.smoke.id
+resource "adlc_user_password" "smoke" {
+  user   = adlc_user.smoke.id
   length = 20
   # The user resource above already sets enabled = false and has nothing else needing
   # it; leave the account disabled rather than enabling a throwaway CI account.
@@ -277,10 +277,10 @@ resource "dryad_user_password" "smoke" {
 }
 
 output "user_password_id" {
-  value = dryad_user_password.smoke.id
+  value = adlc_user_password.smoke.id
 }
 
 output "user_password_length" {
-  value     = length(dryad_user_password.smoke.password)
+  value     = length(adlc_user_password.smoke.password)
   sensitive = true
 }

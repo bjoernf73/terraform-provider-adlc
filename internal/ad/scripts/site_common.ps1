@@ -3,7 +3,7 @@
 function Get-ADSiteOrNull([string]$Identity) {
     $serverParams = Get-ServerParams
     try {
-        return Get-ADReplicationSite -Identity $Identity -Properties Description, Location, DistinguishedName, Name @serverParams -ErrorAction Stop
+        return Get-ADReplicationSite -Identity $Identity -Properties Description, DistinguishedName, Name @serverParams -ErrorAction Stop
     }
     catch {
         if (Test-IsIdentityNotFound $_) { return $null }
@@ -19,7 +19,6 @@ function Get-ADSiteResult($Site) {
         exists             = $true
         name               = [string]$Site.Name
         description        = [string]$Site.Description
-        location           = [string]$Site.Location
         distinguished_name = [string]$Site.DistinguishedName
     }
 }

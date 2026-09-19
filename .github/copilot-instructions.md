@@ -1,14 +1,14 @@
-# terraform-provider-dryad — repository instructions
+# terraform-provider-adlc — repository instructions
 
 ## What this repository is
 
-A Terraform provider (`dryad`) that manages **Active Directory** objects by executing
+A Terraform provider (`adlc`) that manages **Active Directory** objects by executing
 **PowerShell 7** on a remote Windows host over **WinRM** or **SSH**. There is no native
 LDAP client — every operation is a PowerShell script that emits JSON on stdout, which Go
 decodes into a typed struct.
 
-Module path: `github.com/henrikhalt/terraform-provider-dryad`
-Provider address: `registry.terraform.io/henrikhalt/dryad`
+Module path: `github.com/henrikhalt/terraform-provider-adlc`
+Provider address: `registry.terraform.io/henrikhalt/adlc`
 
 ## Non-negotiable rules
 

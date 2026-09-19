@@ -7,29 +7,29 @@ import (
 	"testing"
 	"time"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
 )
 
-// Manual connectivity check. Set DRYAD_HOST, DRYAD_USERNAME and DRYAD_PASSWORD to run it:
+// Manual connectivity check. Set ADLC_HOST, ADLC_USERNAME and ADLC_PASSWORD to run it:
 //
-//	DRYAD_HOST=10.0.13.6 DRYAD_USERNAME='UTV\Administrator' DRYAD_PASSWORD=... \
+//	ADLC_HOST=10.0.13.6 ADLC_USERNAME='UTV\Administrator' ADLC_PASSWORD=... \
 //	  go test ./internal/transport -run TestWinRMSmoke -v
 func TestWinRMSmoke(t *testing.T) {
-	host := os.Getenv("DRYAD_HOST")
+	host := os.Getenv("ADLC_HOST")
 	if host == "" {
-		t.Skip("DRYAD_HOST not set")
+		t.Skip("ADLC_HOST not set")
 	}
 
 	port := 5985
-	if raw := os.Getenv("DRYAD_PORT"); raw != "" {
+	if raw := os.Getenv("ADLC_PORT"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil {
-			t.Fatalf("invalid DRYAD_PORT: %v", err)
+			t.Fatalf("invalid ADLC_PORT: %v", err)
 		}
 		port = parsed
 	}
 
-	auth := os.Getenv("DRYAD_WINRM_AUTH")
+	auth := os.Getenv("ADLC_WINRM_AUTH")
 	if auth == "" {
 		auth = "ntlm"
 	}
@@ -38,12 +38,12 @@ func TestWinRMSmoke(t *testing.T) {
 		Host:           host,
 		Port:           port,
 		Transport:      "winrm",
-		Username:       os.Getenv("DRYAD_USERNAME"),
-		Password:       os.Getenv("DRYAD_PASSWORD"),
+		Username:       os.Getenv("ADLC_USERNAME"),
+		Password:       os.Getenv("ADLC_PASSWORD"),
 		Insecure:       true,
 		PowerShellPath: "pwsh",
 		Timeout:        30 * time.Second,
-		WinRMUseTLS:    os.Getenv("DRYAD_WINRM_USE_TLS") == "true",
+		WinRMUseTLS:    os.Getenv("ADLC_WINRM_USE_TLS") == "true",
 		WinRMAuth:      auth,
 	}
 

@@ -1,13 +1,13 @@
 ---
-page_title: "Provider: dryad"
+page_title: "Provider: adlc"
 description: |-
-  The dryad provider manages Active Directory objects by executing PowerShell 7 on a
-  remote Windows host over WinRM or SSH.
+  ADLC is an Active Directory Lifecycle provider that manages directory objects and
+  policy through PowerShell 7 on a remote Windows host over WinRM or SSH.
 ---
 
-# dryad Provider
+# adlc Provider
 
-The dryad provider manages Active Directory objects by executing PowerShell 7 commands on remote Windows systems over WinRM or SSH.
+ADLC is an Active Directory Lifecycle provider that manages directory objects and policy through PowerShell 7 commands on remote Windows systems over WinRM or SSH.
 
 There is no LDAP client: every operation is a PowerShell script executed on a Windows
 host that has the `ActiveDirectory` module available, typically a domain controller.
@@ -25,14 +25,14 @@ out of human-readable output.
 ```terraform
 terraform {
   required_providers {
-    dryad = {
-      source = "henrikhalt/dryad"
+    adlc = {
+      source = "henrikhalt/adlc"
     }
   }
 }
 
 # WinRM with NTLM authentication.
-provider "dryad" {
+provider "adlc" {
   transport       = "winrm"
   host            = "dc1.contoso.local"
   username        = "CONTOSO\\terraform"
@@ -42,7 +42,7 @@ provider "dryad" {
 }
 
 # SSH with password authentication.
-provider "dryad" {
+provider "adlc" {
   alias           = "ssh"
   transport       = "ssh"
   host            = "dc1.contoso.local"

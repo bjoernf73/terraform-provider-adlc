@@ -13,25 +13,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/config"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
 )
 
-var _ frameworkprovider.Provider = &dryadProvider{}
+var _ frameworkprovider.Provider = &adlcProvider{}
 
 func New(version string) func() frameworkprovider.Provider {
 	return func() frameworkprovider.Provider {
-		return &dryadProvider{
+		return &adlcProvider{
 			version: version,
 		}
 	}
 }
 
-type dryadProvider struct {
+type adlcProvider struct {
 	version string
 }
 
-type dryadProviderModel struct {
+type adlcProviderModel struct {
 	Host                types.String `tfsdk:"host"`
 	Port                types.Int64  `tfsdk:"port"`
 	Transport           types.String `tfsdk:"transport"`
@@ -52,14 +52,14 @@ type dryadProviderModel struct {
 	SSHHostKey          types.String `tfsdk:"ssh_host_key"`
 }
 
-func (p *dryadProvider) Metadata(_ context.Context, _ frameworkprovider.MetadataRequest, resp *frameworkprovider.MetadataResponse) {
-	resp.TypeName = "dryad"
+func (p *adlcProvider) Metadata(_ context.Context, _ frameworkprovider.MetadataRequest, resp *frameworkprovider.MetadataResponse) {
+	resp.TypeName = "adlc"
 	resp.Version = p.version
 }
 
-func (p *dryadProvider) Schema(_ context.Context, _ frameworkprovider.SchemaRequest, resp *frameworkprovider.SchemaResponse) {
+func (p *adlcProvider) Schema(_ context.Context, _ frameworkprovider.SchemaRequest, resp *frameworkprovider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "The dryad provider manages Active Directory objects by executing PowerShell 7 commands on remote Windows systems over WinRM or SSH.",
+		MarkdownDescription: "ADLC is an Active Directory Lifecycle provider that manages directory objects and policy through PowerShell 7 commands on remote Windows systems over WinRM or SSH.",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Required:            true,
@@ -139,8 +139,8 @@ func (p *dryadProvider) Schema(_ context.Context, _ frameworkprovider.SchemaRequ
 	}
 }
 
-func (p *dryadProvider) Configure(ctx context.Context, req frameworkprovider.ConfigureRequest, resp *frameworkprovider.ConfigureResponse) {
-	var data dryadProviderModel
+func (p *adlcProvider) Configure(ctx context.Context, req frameworkprovider.ConfigureRequest, resp *frameworkprovider.ConfigureResponse) {
+	var data adlcProviderModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -152,17 +152,17 @@ func (p *dryadProvider) Configure(ctx context.Context, req frameworkprovider.Con
 		return
 	}
 
-	dryadClient, err := client.New(cfg)
+	adlcClient, err := client.New(cfg)
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to create dryad client", err.Error())
+		resp.Diagnostics.AddError("Unable to create adlc client", err.Error())
 		return
 	}
 
-	resp.DataSourceData = dryadClient
-	resp.ResourceData = dryadClient
+	resp.DataSourceData = adlcClient
+	resp.ResourceData = adlcClient
 }
 
-func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource {
+func (p *adlcProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewOrganizationalUnitResource,
 		NewGroupResource,
@@ -184,14 +184,14 @@ func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource 
 	}
 }
 
-func (p *dryadProvider) DataSources(_ context.Context) []func() datasource.DataSource {
+func (p *adlcProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewDomainDataSource,
 		NewJsonGPOExportDataSource,
 	}
 }
 
-func expandProviderConfig(data dryadProviderModel) (config.Config, diag.Diagnostics) {
+func expandProviderConfig(data adlcProviderModel) (config.Config, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	cfg := config.Config{

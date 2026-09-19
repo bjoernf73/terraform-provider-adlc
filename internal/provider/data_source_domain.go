@@ -8,8 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
 )
 
 var (
@@ -106,13 +106,13 @@ func (d *domainDataSource) Configure(_ context.Context, req datasource.Configure
 		return
 	}
 
-	dryadClient, ok := req.ProviderData.(*client.Client)
+	adlcClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError("Unexpected provider data type", fmt.Sprintf("Expected *client.Client, got %T", req.ProviderData))
 		return
 	}
 
-	d.client = dryadClient
+	d.client = adlcClient
 }
 
 func (d *domainDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {

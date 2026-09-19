@@ -3,7 +3,7 @@ package ad
 import (
 	"context"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
 )
 
 const domainRead = "domain_read.ps1"

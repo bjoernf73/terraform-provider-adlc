@@ -3,7 +3,7 @@ package ad
 import (
 	"context"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
 )
 
 const (
@@ -16,19 +16,17 @@ const (
 type SiteInput struct {
 	Name        string
 	Description string
-	Location    string
 }
 
 type Site struct {
 	Exists            bool   `json:"exists"`
 	Name              string `json:"name"`
 	Description       string `json:"description"`
-	Location          string `json:"location"`
 	DistinguishedName string `json:"distinguished_name"`
 }
 
 func (i SiteInput) payload() map[string]any {
-	return map[string]any{"name": i.Name, "description": i.Description, "location": i.Location}
+	return map[string]any{"name": i.Name, "description": i.Description}
 }
 
 func EnsureSite(ctx context.Context, c *client.Client, input SiteInput) (*Site, error) {

@@ -30,7 +30,7 @@ is written once and the list of systems is the only thing that grows.
 `for_each` on a single resource creates one instance per element:
 
 ```hcl
-resource "dryad_organizational_unit" "system" {
+resource "adlc_organizational_unit" "system" {
   for_each = toset(["SystemA", "SystemB", "SystemC"])
 
   path        = "Systems/${each.value}"
@@ -41,9 +41,9 @@ resource "dryad_organizational_unit" "system" {
 The instances are addressed by key:
 
 ```
-dryad_organizational_unit.system["SystemA"]
-dryad_organizational_unit.system["SystemB"]
-dryad_organizational_unit.system["SystemC"]
+adlc_organizational_unit.system["SystemA"]
+adlc_organizational_unit.system["SystemB"]
+adlc_organizational_unit.system["SystemC"]
 ```
 
 This works well for a single resource. For a *set* of objects per system, loop a module
@@ -69,28 +69,28 @@ variable "scope" {
 
 ```hcl
 # modules/system/main.tf
-resource "dryad_organizational_unit" "root" {
+resource "adlc_organizational_unit" "root" {
   path        = "Systems/${var.system}"
   description = "Root OU for ${var.system}"
 }
 
-resource "dryad_organizational_unit" "sub" {
+resource "adlc_organizational_unit" "sub" {
   for_each = toset(["Servers", "Groups", "ServiceAccounts"])
 
   path = "Systems/${var.system}/${each.value}"
 }
 
-resource "dryad_group" "admins" {
+resource "adlc_group" "admins" {
   name             = "${var.system}-Admins"
   sam_account_name = "${upper(var.system)}-ADMINS"
-  path             = dryad_organizational_unit.sub["Groups"].path
+  path             = adlc_organizational_unit.sub["Groups"].path
   description      = "Administrators of ${var.system}"
   scope            = var.scope
 }
 
-resource "dryad_access_rule" "manage_computers" {
-  target                = dryad_organizational_unit.sub["Servers"].distinguished_name
-  trustee               = dryad_group.admins.sid
+resource "adlc_access_rule" "manage_computers" {
+  target                = adlc_organizational_unit.sub["Servers"].distinguished_name
+  trustee               = adlc_group.admins.sid
   rights                = ["CreateChild", "DeleteChild"]
   object_type           = "computer"
   inheritance           = "Descendents"
@@ -101,11 +101,11 @@ resource "dryad_access_rule" "manage_computers" {
 ```hcl
 # modules/system/outputs.tf
 output "admins_id" {
-  value = dryad_group.admins.id
+  value = adlc_group.admins.id
 }
 
 output "root_dn" {
-  value = dryad_organizational_unit.root.distinguished_name
+  value = adlc_organizational_unit.root.distinguished_name
 }
 ```
 
@@ -135,14 +135,14 @@ output "system_a_admins" {
 
 ```hcl
 # Don't do this.
-resource "dryad_organizational_unit" "system" {
+resource "adlc_organizational_unit" "system" {
   count = length(var.systems)
   path  = "Systems/${var.systems[count.index]}"
 }
 ```
 
 Remove `SystemB` from the middle of that list and every later element shifts down one
-index. Terraform compares by address, so `dryad_organizational_unit.system[2]` changing
+index. Terraform compares by address, so `adlc_organizational_unit.system[2]` changing
 from `SystemC` to something else is read as "this resource changed" — and for an OU whose
 `path` requires replacement, that means **destroying and recreating** objects that were
 never meant to be touched.
@@ -207,7 +207,7 @@ locals {
   ]...)
 }
 
-resource "dryad_group_member" "owners" {
+resource "adlc_group_member" "owners" {
   for_each = local.memberships
 
   group  = module.system[each.value.system].admins_id
@@ -237,7 +237,7 @@ locals {
   }
 }
 
-resource "dryad_group" "standard" {
+resource "adlc_group" "standard" {
   for_each = local.system_groups
 
   name  = "${each.value.system}-${each.value.group}"
@@ -252,7 +252,7 @@ Because the key appears in the address, **changing a key destroys and recreates*
 instance. In this module:
 
 ```hcl
-resource "dryad_organizational_unit" "sub" {
+resource "adlc_organizational_unit" "sub" {
   for_each = toset(["Servers", "Groups", "ServiceAccounts"])
   path     = "Systems/${var.system}/${each.value}"
 }
@@ -267,8 +267,8 @@ rather than letting Terraform destroy it:
 
 ```hcl
 moved {
-  from = dryad_organizational_unit.sub["Servers"]
-  to   = dryad_organizational_unit.sub["Server"]
+  from = adlc_organizational_unit.sub["Servers"]
+  to   = adlc_organizational_unit.sub["Server"]
 }
 ```
 
@@ -297,7 +297,7 @@ module "system" {
   scope  = each.value.scope
 }
 
-resource "dryad_group_member" "owners" {
+resource "adlc_group_member" "owners" {
   for_each = local.memberships
 
   group  = module.system[each.value.system].admins_id

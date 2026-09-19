@@ -6,6 +6,11 @@ if ($null -eq $site) {
     $site = Get-ADSiteOrNull $name
 }
 
-Set-ADTopologyTextProperties $site.DistinguishedName ([string]$payload.description) ([string]$payload.location)
+if ([string]::IsNullOrWhiteSpace([string]$payload.description)) {
+    Set-ADReplicationSite -Identity $site.DistinguishedName -Clear Description @serverParams -ErrorAction Stop
+}
+else {
+    Set-ADReplicationSite -Identity $site.DistinguishedName -Description ([string]$payload.description) @serverParams -ErrorAction Stop
+}
 
 Get-ADSiteResult (Get-ADSiteOrNull $name) | ConvertTo-Json -Compress

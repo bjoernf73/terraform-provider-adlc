@@ -16,9 +16,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/password"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/password"
 )
 
 var (
@@ -78,7 +78,7 @@ func (r *userPasswordResource) Schema(_ context.Context, _ resource.SchemaReques
 			"user": schema.StringAttribute{
 				Required: true,
 				MarkdownDescription: "User the password is set on. Accepts a distinguished name, `objectGUID`, SID, " +
-					"`DOMAIN\\name` or `sAMAccountName` — typically `dryad_user.<name>.id`.",
+					"`DOMAIN\\name` or `sAMAccountName` — typically `adlc_user.<name>.id`.",
 				PlanModifiers: replaceString,
 			},
 			"user_dn": schema.StringAttribute{
@@ -149,13 +149,13 @@ func (r *userPasswordResource) Configure(_ context.Context, req resource.Configu
 		return
 	}
 
-	dryadClient, ok := req.ProviderData.(*client.Client)
+	adlcClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError("Unexpected provider data type", fmt.Sprintf("Expected *client.Client, got %T", req.ProviderData))
 		return
 	}
 
-	r.client = dryadClient
+	r.client = adlcClient
 }
 
 func (r *userPasswordResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {

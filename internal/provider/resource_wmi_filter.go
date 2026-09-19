@@ -15,8 +15,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
 )
 
 var (
@@ -58,7 +58,7 @@ func (r *wmiFilterResource) Metadata(_ context.Context, req resource.MetadataReq
 func (r *wmiFilterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a WMI filter (an `msWMI-Som` object). WMI filters are assigned to GPOs with " +
-			"[`dryad_gpo_wmi_filter`](../resources/gpo_wmi_filter.md).",
+			"[`adlc_gpo_wmi_filter`](../resources/gpo_wmi_filter.md).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -115,13 +115,13 @@ func (r *wmiFilterResource) Configure(_ context.Context, req resource.ConfigureR
 		return
 	}
 
-	dryadClient, ok := req.ProviderData.(*client.Client)
+	adlcClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError("Unexpected provider data type", fmt.Sprintf("Expected *client.Client, got %T", req.ProviderData))
 		return
 	}
 
-	r.client = dryadClient
+	r.client = adlcClient
 }
 
 func (r *wmiFilterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

@@ -2,7 +2,7 @@
 page_title: "Paths and distinguished names"
 subcategory: "Guides"
 description: |-
-  How dryad resolves object locations, so configurations avoid repeating the domain
+  How adlc resolves object locations, so configurations avoid repeating the domain
   component of every distinguished name.
 ---
 
@@ -44,7 +44,7 @@ A slash path reads in the natural direction, parent first, and every segment is 
 to be an organizational unit below the connected domain root:
 
 ```hcl
-resource "dryad_organizational_unit" "windows" {
+resource "adlc_organizational_unit" "windows" {
   path = "Contoso/Servers/Windows"
 }
 ```
@@ -68,8 +68,8 @@ path = "OU=Servers,DC=contoso,DC=local"
 Nothing in the relative path names the domain, so the same module applies unchanged to
 `contoso.local` and `test.contoso.local`.
 
-~> `dryad_organizational_unit` **creates missing parents** along the path. `dryad_group`
-and `dryad_access_rule` do not — they expect the container to exist, and fail if it does
+~> `adlc_organizational_unit` **creates missing parents** along the path. `adlc_group`
+and `adlc_access_rule` do not — they expect the container to exist, and fail if it does
 not.
 
 ## Relative distinguished names
@@ -85,13 +85,13 @@ important locations are containers (`CN=`) rather than organizational units:
 For these, write the distinguished name but leave off the domain:
 
 ```hcl
-resource "dryad_group" "legacy_readers" {
+resource "adlc_group" "legacy_readers" {
   name  = "Legacy Readers"
   path  = "CN=Users"
   scope = "DomainLocal"
 }
 
-resource "dryad_access_rule" "manage_pki" {
+resource "adlc_access_rule" "manage_pki" {
   target      = "CN=Public Key Services,CN=Services,CN=Configuration"
   trustee     = "PKI Admins"
   rights      = ["GenericAll"]
@@ -118,7 +118,7 @@ An empty string means the domain root, which is where forest-wide delegations su
 directory replication are granted:
 
 ```hcl
-resource "dryad_access_rule" "replicate_directory_changes" {
+resource "adlc_access_rule" "replicate_directory_changes" {
   target      = ""
   trustee     = "Entra Connect"
   rights      = ["ExtendedRight"]
@@ -130,24 +130,24 @@ resource "dryad_access_rule" "replicate_directory_changes" {
 
 | Attribute | Meaning |
 | --- | --- |
-| `dryad_organizational_unit.path` | The OU itself, with parents created as needed |
-| `dryad_group.path` | The container holding the group |
-| `dryad_access_rule.target` | The object the ACE is applied to |
+| `adlc_organizational_unit.path` | The OU itself, with parents created as needed |
+| `adlc_group.path` | The container holding the group |
+| `adlc_access_rule.target` | The object the ACE is applied to |
 
 Each resource also publishes the resolved distinguished name, which is what you pass to
 anything that needs a real DN:
 
 | Attribute | Contains |
 | --- | --- |
-| `dryad_organizational_unit.distinguished_name` | DN of the OU |
-| `dryad_group.distinguished_name` | DN of the group |
-| `dryad_group.path` | Container, in the form it was configured |
-| `dryad_access_rule.target_dn` | Resolved DN of the target |
+| `adlc_organizational_unit.distinguished_name` | DN of the OU |
+| `adlc_group.distinguished_name` | DN of the group |
+| `adlc_group.path` | Container, in the form it was configured |
+| `adlc_access_rule.target_dn` | Resolved DN of the target |
 
 ```hcl
-resource "dryad_access_rule" "delegate" {
-  target  = dryad_organizational_unit.servers.distinguished_name
-  trustee = dryad_group.admins.sid
+resource "adlc_access_rule" "delegate" {
+  target  = adlc_organizational_unit.servers.distinguished_name
+  trustee = adlc_group.admins.sid
   rights  = ["CreateChild"]
 }
 ```
@@ -169,18 +169,18 @@ A genuine move still produces a real diff, because the resolved DN actually diff
 
 ## When you do need the domain
 
-Use the `dryad_domain` data source rather than a literal, so configurations stay portable:
+Use the `adlc_domain` data source rather than a literal, so configurations stay portable:
 
 ```hcl
-data "dryad_domain" "current" {}
+data "adlc_domain" "current" {}
 
 output "users_container" {
-  value = data.dryad_domain.current.users_container
+  value = data.adlc_domain.current.users_container
 }
 
-resource "dryad_group" "example" {
+resource "adlc_group" "example" {
   name = "Example"
-  path = data.dryad_domain.current.computers_container
+  path = data.adlc_domain.current.computers_container
 }
 ```
 

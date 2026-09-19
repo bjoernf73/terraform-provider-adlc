@@ -14,8 +14,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
 )
 
 var (
@@ -32,7 +32,6 @@ type siteResourceModel struct {
 	ID                types.String `tfsdk:"id"`
 	Name              types.String `tfsdk:"name"`
 	Description       types.String `tfsdk:"description"`
-	Location          types.String `tfsdk:"location"`
 	DistinguishedName types.String `tfsdk:"distinguished_name"`
 }
 
@@ -43,12 +42,11 @@ func (r *siteResource) Metadata(_ context.Context, req resource.MetadataRequest,
 func (r *siteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	computed := []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages an Active Directory replication site. Sites group domain controllers by network location and are assigned CIDR networks with `dryad_subnet`.",
+		MarkdownDescription: "Manages an Active Directory replication site. Sites group domain controllers by network location and are assigned CIDR networks with `adlc_subnet`.",
 		Attributes: map[string]schema.Attribute{
 			"id":                 schema.StringAttribute{Computed: true, MarkdownDescription: "Terraform identifier. Equals the site distinguished name.", PlanModifiers: computed},
 			"name":               schema.StringAttribute{Required: true, MarkdownDescription: "Replication site name. Changing it replaces the site.", PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
 			"description":        schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString(""), MarkdownDescription: "Site description."},
-			"location":           schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString(""), MarkdownDescription: "Physical location of the site."},
 			"distinguished_name": schema.StringAttribute{Computed: true, MarkdownDescription: "Distinguished name of the replication site.", PlanModifiers: computed},
 		},
 	}
@@ -58,12 +56,12 @@ func (r *siteResource) Configure(_ context.Context, req resource.ConfigureReques
 	if req.ProviderData == nil {
 		return
 	}
-	dryadClient, ok := req.ProviderData.(*client.Client)
+	adlcClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError("Unexpected provider data type", fmt.Sprintf("Expected *client.Client, got %T", req.ProviderData))
 		return
 	}
-	r.client = dryadClient
+	r.client = adlcClient
 }
 
 func (r *siteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -121,7 +119,6 @@ func (r *siteResource) ensureAndSet(ctx context.Context, plan siteResourceModel,
 	site, err := ad.EnsureSite(ctx, r.client, ad.SiteInput{
 		Name:        plan.Name.ValueString(),
 		Description: plan.Description.ValueString(),
-		Location:    plan.Location.ValueString(),
 	})
 	if err != nil {
 		diags.AddError("Unable to set AD site", err.Error())
@@ -131,5 +128,5 @@ func (r *siteResource) ensureAndSet(ctx context.Context, plan siteResourceModel,
 }
 
 func siteState(site *ad.Site) siteResourceModel {
-	return siteResourceModel{ID: types.StringValue(site.DistinguishedName), Name: types.StringValue(site.Name), Description: types.StringValue(site.Description), Location: types.StringValue(site.Location), DistinguishedName: types.StringValue(site.DistinguishedName)}
+	return siteResourceModel{ID: types.StringValue(site.DistinguishedName), Name: types.StringValue(site.Name), Description: types.StringValue(site.Description), DistinguishedName: types.StringValue(site.DistinguishedName)}
 }

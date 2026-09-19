@@ -10,19 +10,18 @@ description: |-
 
 Active Directory sites represent network locations. A client matches its IP address to
 an Active Directory subnet, which identifies the site used for domain-controller and
-SYSVOL discovery. The usual Terraform shape is one `dryad_site` and one or more
-`dryad_subnet` resources assigned to it.
+SYSVOL discovery. The usual Terraform shape is one `adlc_site` and one or more
+`adlc_subnet` resources assigned to it.
 
 ```hcl
-resource "dryad_site" "headoffice" {
+resource "adlc_site" "headoffice" {
   name        = "HeadOffice"
   description = "Primary office and data center"
-  location    = "Oslo, Norway"
 }
 
-resource "dryad_subnet" "headoffice_lan" {
+resource "adlc_subnet" "headoffice_lan" {
   name     = "10.42.0.0/16"
-  site     = dryad_site.headoffice.name
+  site     = adlc_site.headoffice.name
   location = "Oslo, Norway"
 }
 ```
@@ -30,9 +29,9 @@ resource "dryad_subnet" "headoffice_lan" {
 Subnet names must be CIDR networks with host bits clear. For example, `10.42.0.0/16`
 is valid, while `10.42.1.5/16` is rejected.
 
-Changing a subnet's `site`, `description`, or `location` updates it in place. Changing
-a site's name or the CIDR subnet name replaces that object, because those values are its
-Active Directory identity.
+Changing a site's `description` or a subnet's `site`, `description`, or `location` updates
+it in place. Changing a site's name or the CIDR subnet name replaces that object, because
+those values are its Active Directory identity.
 
 This provider intentionally manages only site objects and subnet-to-site assignments.
 Site links, replication schedules, bridgeheads, and domain-controller placement are

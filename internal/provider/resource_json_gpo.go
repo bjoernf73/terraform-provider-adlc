@@ -13,8 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-dryad/internal/ad"
-	"github.com/henrikhalt/terraform-provider-dryad/internal/client"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
+	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
 )
 
 var (
@@ -59,11 +59,11 @@ func (r *jsonGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 		MarkdownDescription: "Imports a GPO described as JSON (registry settings, security template, audit settings, " +
 			"comments, scripts and Group Policy Preferences), the format produced by " +
 			"[dry.module.ad](https://github.com/bjoernf73/dry.module.ad)'s `Export-GroupPolicyFromAD`. This is the second " +
-			"of two ways this provider manages GPOs: `dryad_backup_gpo` imports a `Backup-GPO` folder; `dryad_json_gpo` " +
+			"of two ways this provider manages GPOs: `adlc_backup_gpo` imports a `Backup-GPO` folder; `adlc_json_gpo` " +
 			"imports a JSON description instead, which resolves every security principal it references by name in the " +
 			"target domain automatically (`####Replace[DOMAIN\\Name]` tokens), rather than needing an explicit migration " +
 			"table.\n\n" +
-			"GPO links (`dryad_gpo_links`), ACLs (`dryad_access_rule`) and WMI filters are deliberately out of scope: any " +
+			"GPO links (`adlc_gpo_links`), ACLs (`adlc_access_rule`) and WMI filters are deliberately out of scope: any " +
 			"`LinkTargets`, `Permissions` or `WMIFilter` present in the JSON are ignored.\n\n" +
 			"The JSON file is read from the machine running Terraform; the resource has no way to detect out-of-band " +
 			"changes to that file between plans, so it re-imports whenever the file contents or `replacements` change, " +
@@ -98,7 +98,7 @@ func (r *jsonGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					"name (`DomainFQDN`, not `####DomainFQDN####`) - the `####` delimiters are implied, the same way Ansible " +
 					"variables imply `{{ }}` - matched case-insensitively (as a substring, not a regex) anywhere in the file " +
 					"and replaced with its value. This is `dry.module.ad`'s convention for values an export can't classify " +
-					"automatically (a domain FQDN embedded in free text, for example). Unlike `dryad_backup_gpo`'s " +
+					"automatically (a domain FQDN embedded in free text, for example). Unlike `adlc_backup_gpo`'s " +
 					"`migrations`, there is no `type`: this is plain text substitution. Security principals are handled " +
 					"separately and automatically, and never need an entry here.",
 			},
@@ -165,13 +165,13 @@ func (r *jsonGPOResource) Configure(_ context.Context, req resource.ConfigureReq
 		return
 	}
 
-	dryadClient, ok := req.ProviderData.(*client.Client)
+	adlcClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError("Unexpected provider data type", fmt.Sprintf("Expected *client.Client, got %T", req.ProviderData))
 		return
 	}
 
-	r.client = dryadClient
+	r.client = adlcClient
 }
 
 // ModifyPlan recomputes the local content fingerprint on every plan, so edits to the

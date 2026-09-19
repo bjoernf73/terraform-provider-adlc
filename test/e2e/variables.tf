@@ -66,11 +66,11 @@ variable "ou_path" {
 variable "ou_description" {
   type        = string
   description = "Description set on the leaf OU."
-  default     = "terraform-provider-dryad CI smoke test"
+  default     = "terraform-provider-adlc CI smoke test"
 }
 
 variable "group_name" {
   type        = string
   description = "Name of the group created by the smoke test."
-  default     = "dryad-ci-group"
+  default     = "adlc-ci-group"
 }

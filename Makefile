@@ -3,7 +3,7 @@
 # Matches the version pinned in test/e2e/main.tf.
 PROVIDER_VERSION ?= 0.0.0-ci
 MIRROR_DIR := $(CURDIR)/.provider-mirror
-MIRROR_PATH := $(MIRROR_DIR)/registry.terraform.io/henrikhalt/dryad/$(PROVIDER_VERSION)/$(shell go env GOOS)_$(shell go env GOARCH)
+MIRROR_PATH := $(MIRROR_DIR)/registry.terraform.io/henrikhalt/adlc/$(PROVIDER_VERSION)/$(shell go env GOOS)_$(shell go env GOARCH)
 TFRC := $(CURDIR)/.terraformrc.local
 
 build:
@@ -23,8 +23,8 @@ test:
 # pointing at it, so terraform can run against the working tree.
 mirror:
 	mkdir -p "$(MIRROR_PATH)"
-	go build -o "$(MIRROR_PATH)/terraform-provider-dryad_v$(PROVIDER_VERSION)" .
-	printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s"\n    include = ["registry.terraform.io/henrikhalt/dryad"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/henrikhalt/dryad"]\n  }\n}\n' "$(MIRROR_DIR)" > "$(TFRC)"
+	go build -o "$(MIRROR_PATH)/terraform-provider-adlc_v$(PROVIDER_VERSION)" .
+	printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s"\n    include = ["registry.terraform.io/henrikhalt/adlc"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/henrikhalt/adlc"]\n  }\n}\n' "$(MIRROR_DIR)" > "$(TFRC)"
 
 validate: mirror
 	rm -f test/e2e/.terraform.lock.hcl test/showcase/.terraform.lock.hcl
@@ -37,8 +37,8 @@ validate: mirror
 # Regenerates docs/ from the provider schema, examples/ and templates/.
 docs:
 	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest generate \
-		--provider-name dryad \
-		--rendered-provider-name dryad
+		--provider-name adlc \
+		--rendered-provider-name adlc
 
 # Fails when docs/ is out of date with the schema.
 docs-check: docs
