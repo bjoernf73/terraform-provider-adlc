@@ -13,8 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
-	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/client"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/config"
 )
 
 var _ frameworkprovider.Provider = &adlcProvider{}

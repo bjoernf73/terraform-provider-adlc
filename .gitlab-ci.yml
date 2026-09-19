@@ -6,7 +6,7 @@ stages:
 variables:
   GO_IMAGE: "golang:1.25"
   TF_IMAGE: "hashicorp/terraform:1.13"
-  PROVIDER_NAMESPACE: "henrikhalt"
+  PROVIDER_NAMESPACE: "bjoernf73"
   PROVIDER_TYPE: "adlc"
   PROVIDER_VERSION: "0.0.0-ci"
   GOPATH: "$CI_PROJECT_DIR/.go"

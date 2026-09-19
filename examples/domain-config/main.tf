@@ -6,7 +6,7 @@ terraform {
 
   required_providers {
     adlc = {
-      source  = "henrikhalt/adlc"
+      source  = "bjoernf73/adlc"
       version = "0.0.0-ci"
     }
   }

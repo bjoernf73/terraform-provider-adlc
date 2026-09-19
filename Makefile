@@ -3,7 +3,7 @@
 # Matches the version pinned in test/e2e/main.tf.
 PROVIDER_VERSION ?= 0.0.0-ci
 MIRROR_DIR := $(CURDIR)/.provider-mirror
-MIRROR_PATH := $(MIRROR_DIR)/registry.terraform.io/henrikhalt/adlc/$(PROVIDER_VERSION)/$(shell go env GOOS)_$(shell go env GOARCH)
+MIRROR_PATH := $(MIRROR_DIR)/registry.terraform.io/bjoernf73/adlc/$(PROVIDER_VERSION)/$(shell go env GOOS)_$(shell go env GOARCH)
 TFRC := $(CURDIR)/.terraformrc.local
 
 build:
@@ -24,7 +24,7 @@ test:
 mirror:
 	mkdir -p "$(MIRROR_PATH)"
 	go build -o "$(MIRROR_PATH)/terraform-provider-adlc_v$(PROVIDER_VERSION)" .
-	printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s"\n    include = ["registry.terraform.io/henrikhalt/adlc"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/henrikhalt/adlc"]\n  }\n}\n' "$(MIRROR_DIR)" > "$(TFRC)"
+	printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s"\n    include = ["registry.terraform.io/bjoernf73/adlc"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/bjoernf73/adlc"]\n  }\n}\n' "$(MIRROR_DIR)" > "$(TFRC)"
 
 validate: mirror
 	rm -f test/e2e/.terraform.lock.hcl test/showcase/.terraform.lock.hcl

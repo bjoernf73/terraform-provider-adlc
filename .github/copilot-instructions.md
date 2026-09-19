@@ -7,8 +7,8 @@ A Terraform provider (`adlc`) that manages **Active Directory** objects by execu
 LDAP client — every operation is a PowerShell script that emits JSON on stdout, which Go
 decodes into a typed struct.
 
-Module path: `github.com/henrikhalt/terraform-provider-adlc`
-Provider address: `registry.terraform.io/henrikhalt/adlc`
+Module path: `github.com/bjoernf73/terraform-provider-adlc`
+Provider address: `registry.terraform.io/bjoernf73/adlc`
 
 ## Non-negotiable rules
 

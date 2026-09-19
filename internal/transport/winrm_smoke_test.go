@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/config"
 )
 
 // Manual connectivity check. Set ADLC_HOST, ADLC_USERNAME and ADLC_PASSWORD to run it:

@@ -16,9 +16,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
-	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
-	"github.com/henrikhalt/terraform-provider-adlc/internal/password"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/ad"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/client"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/password"
 )
 
 var (

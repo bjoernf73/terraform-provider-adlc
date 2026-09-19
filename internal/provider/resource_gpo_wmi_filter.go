@@ -13,8 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/ad"
-	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/ad"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/client"
 )
 
 var (

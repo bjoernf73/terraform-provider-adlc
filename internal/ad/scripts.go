@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/client"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/client"
 )
 
 //go:embed scripts/*.ps1

@@ -66,7 +66,7 @@ make docs
 terraform {
   required_providers {
     adlc = {
-      source = "henrikhalt/adlc"
+      source = "bjoernf73/adlc"
     }
   }
 }

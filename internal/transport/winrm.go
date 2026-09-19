@@ -9,7 +9,7 @@ import (
 
 	"github.com/masterzen/winrm"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/config"
 )
 
 type winrmRunner struct {

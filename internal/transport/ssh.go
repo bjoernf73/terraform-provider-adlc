@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"github.com/henrikhalt/terraform-provider-adlc/internal/config"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/config"
 )
 
 type sshRunner struct {
