@@ -4,7 +4,7 @@ stages:
   - e2e
 
 variables:
-  GO_IMAGE: "golang:1.25"
+  GO_IMAGE: "golang:1.26"
   TF_IMAGE: "hashicorp/terraform:1.13"
   PROVIDER_NAMESPACE: "bjoernf73"
   PROVIDER_TYPE: "adlc"
