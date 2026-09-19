@@ -21,10 +21,33 @@ recreates the GPO.
 | Free-text substitution | Not supported | `replacements`, a plain string map |
 | Coverage | Everything `Import-GPO` supports | Registry settings, security template, audit settings, comments, scripts, Group Policy Preferences - not links, ACLs or WMI filters |
 
-GPO links and ACLs are managed by separate resources either way: [`dryad_gpo_links`](../resources/gpo_links.md)
-for links, [`dryad_access_rule`](../resources/access_rule.md) for permissions on the GPO
-container itself (its distinguished name is `CN={guid},CN=Policies,CN=System,<domain DN>`,
-published as `distinguished_name` on both resources).
+GPO links and permissions are managed by separate resources either way:
+[`dryad_gpo_links`](../resources/gpo_links.md) manages where a GPO is linked;
+[`dryad_gpo_permission`](../resources/gpo_permission.md) manages a named Group Policy
+permission for one trustee; and [`dryad_gpo_security_filter`](../resources/gpo_security_filter.md)
+authoritatively controls which principals may apply a GPO. [`dryad_access_rule`](../resources/access_rule.md)
+is still appropriate for a raw ACL delegation on the GPO container itself (its distinguished name
+is `CN={guid},CN=Policies,CN=System,<domain DN>`, published as `distinguished_name` on both
+import resources), but it does not manage matching SYSVOL permissions and is not a substitute
+for GPO security filtering.
+
+### GPO permissions and security filtering
+
+Use `dryad_gpo_permission` when Terraform should manage one trustee's standard Group Policy
+permission (`GpoRead`, `GpoApply`, `GpoEdit`, or `GpoEditDeleteModifySecurity`). It uses
+`Set-GPPermission`, which keeps the directory and SYSVOL permissions in agreement.
+
+Use `dryad_gpo_security_filter` when the intent is that only a complete, declared set of users,
+groups, or computers may apply the policy. It removes explicit `GpoApply` permissions from every
+other principal, but retains `Authenticated Users` at `GpoRead`, matching GPMC's conventional
+security-filtering behavior. It deliberately leaves editor and owner permissions unchanged.
+
+```hcl
+resource "dryad_gpo_security_filter" "server_baseline" {
+  gpo        = dryad_json_gpo.server_baseline.target_name
+  principals = [dryad_group.server_computers.distinguished_name]
+}
+```
 
 ## `dryad_backup_gpo`: importing a `Backup-GPO` folder
 

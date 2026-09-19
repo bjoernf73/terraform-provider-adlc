@@ -14,8 +14,9 @@ Assigns a WMI filter (`dryad_wmi_filter`) to a GPO (`gPCWQLFilter`). A GPO can o
 
 ```terraform
 resource "dryad_backup_gpo" "servers_baseline" {
+  backup_name = "Servers Baseline"
   target_name = "Servers Baseline"
-  path        = "backup_gpo/Servers Baseline"
+  path        = "backup_gpo"
 }
 
 resource "dryad_wmi_filter" "windows_server_2022" {

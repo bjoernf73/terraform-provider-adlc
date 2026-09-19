@@ -20,8 +20,14 @@ document that the provider decodes.
 | `dryad_backup_gpo` | Imports a `Backup-GPO` folder into a GPO |
 | `dryad_json_gpo` | Imports a JSON-described GPO |
 | `dryad_gpo_links` | The full, ordered set of GPO links on an OU, domain or site |
+| `dryad_wmi_filter` | A WMI filter (`msWMI-Som` object) |
+| `dryad_gpo_wmi_filter` | The WMI filter assigned to a single GPO |
+| `dryad_gpo_permission` | One trustee's named Group Policy permission |
+| `dryad_gpo_security_filter` | The complete set of principals allowed to apply one GPO |
+| `dryad_netlogon_files` | A Terraform-owned file tree below NETLOGON |
+| `dryad_administrative_templates` | A Terraform-owned file tree at the Central Store root |
 
-## Data sources 
+## Data sources
 
 | Data source | Reads |
 | --- | --- |
@@ -36,6 +42,7 @@ Full documentation lives in [docs/](docs/) and is published to the Terraform Reg
 - [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
 - [Managing Group Policy Objects](docs/guides/gpos.md) — backup vs. JSON GPOs, migration, links, drift
+- [Managing SYSVOL files](docs/guides/sysvol-files.md) — NETLOGON scripts and Administrative Templates
 - [Dependencies and ordering](docs/guides/dependencies.md) — references, `depends_on` and cycles
 - [User passwords and secret storage](docs/guides/passwords.md) — generation, rotation, Vault composition
 - [Repeating object patterns across systems](docs/guides/repeating-patterns.md) — `for_each` and modules
@@ -130,5 +137,3 @@ A manual transport check, for when CI is too slow a feedback loop:
 DRYAD_HOST=10.0.13.6 DRYAD_USERNAME='CONTOSO\Administrator' DRYAD_PASSWORD=... \
   go test ./internal/transport -run TestWinRMSmoke -v
 ```
-| `dryad_wmi_filter` | A WMI filter (`msWMI-Som` object) |
-| `dryad_gpo_wmi_filter` | The WMI filter assigned to a single GPO |
