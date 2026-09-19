@@ -114,7 +114,21 @@ resource "local_file" "domain_gpo5" {
 Export, commit the resulting file, then `dryad_json_gpo` imports it elsewhere - a full
 round trip between two domains without ever running GPMC by hand on the target.
 
-## Detecting drift
+## Detecting a changed source (the JSON file or backup folder)
+
+Neither resource stores the backup folder or JSON file itself in Terraform state - only
+a fingerprint, `content_hash`, computed from local disk every plan (not cached: it's
+recomputed fresh each time, not just read back from state). `dryad_backup_gpo` hashes
+every file under `path/backup_name/` plus `migrations`; `dryad_json_gpo` hashes the JSON
+file's raw bytes plus `replacements`.
+
+So if you edit the JSON file, or re-export a backup into the same `path`/`backup_name` -
+`target_name` unchanged, nothing else in the `.tf` file touched either - the next
+`terraform plan` reads the now-different file, computes a different hash, sees it
+doesn't match what's recorded in state, and shows `content_hash` changing. That's what
+triggers `Update()` (a re-import), independent of anything happening in Active Directory.
+
+## Detecting drift made outside Terraform
 
 A GPO exposes no content to diff against directly, so both resources detect edits made
 outside Terraform (someone editing the GPO in GPMC) the same way: through its AD/SysVol
