@@ -130,3 +130,5 @@ A manual transport check, for when CI is too slow a feedback loop:
 DRYAD_HOST=10.0.13.6 DRYAD_USERNAME='CONTOSO\Administrator' DRYAD_PASSWORD=... \
   go test ./internal/transport -run TestWinRMSmoke -v
 ```
+| `dryad_wmi_filter` | A WMI filter (`msWMI-Som` object) |
+| `dryad_gpo_wmi_filter` | The WMI filter assigned to a single GPO |
