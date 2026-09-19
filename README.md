@@ -26,6 +26,8 @@ document that the provider decodes.
 | `dryad_gpo_security_filter` | The complete set of principals allowed to apply one GPO |
 | `dryad_netlogon_files` | A Terraform-owned file tree below NETLOGON |
 | `dryad_administrative_templates` | A Terraform-owned file tree at the Central Store root |
+| `dryad_site` | An Active Directory replication site |
+| `dryad_subnet` | A CIDR network assigned to an Active Directory site |
 
 ## Data sources
 
@@ -43,6 +45,7 @@ Full documentation lives in [docs/](docs/) and is published to the Terraform Reg
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
 - [Managing Group Policy Objects](docs/guides/gpos.md) — backup vs. JSON GPOs, migration, links, drift
 - [Managing SYSVOL files](docs/guides/sysvol-files.md) — NETLOGON scripts and Administrative Templates
+- [Managing Active Directory Sites](docs/guides/sites-and-subnets.md) — replication sites and subnet assignment
 - [Dependencies and ordering](docs/guides/dependencies.md) — references, `depends_on` and cycles
 - [User passwords and secret storage](docs/guides/passwords.md) — generation, rotation, Vault composition
 - [Repeating object patterns across systems](docs/guides/repeating-patterns.md) — `for_each` and modules

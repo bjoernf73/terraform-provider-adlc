@@ -179,6 +179,8 @@ func (p *dryadProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewGPOSecurityFilterResource,
 		NewNetlogonFilesResource,
 		NewAdministrativeTemplatesResource,
+		NewSiteResource,
+		NewSubnetResource,
 	}
 }
 
