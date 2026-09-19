@@ -21,7 +21,7 @@ document that the provider decodes.
 | `dryad_json_gpo` | Imports a JSON-described GPO |
 | `dryad_gpo_links` | The full, ordered set of GPO links on an OU, domain or site |
 
-## Data sources
+## Data sources 
 
 | Data source | Reads |
 | --- | --- |
