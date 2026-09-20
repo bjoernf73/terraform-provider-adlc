@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -71,9 +70,9 @@ func HashSysvolFiles(files []SysvolFile) string {
 
 	hash := sha256.New()
 	for _, file := range sorted {
-		io.WriteString(hash, file.Path)
+		hash.Write([]byte(file.Path))
 		hash.Write([]byte{0})
-		io.WriteString(hash, file.SHA256)
+		hash.Write([]byte(file.SHA256))
 		hash.Write([]byte{0})
 	}
 	return hex.EncodeToString(hash.Sum(nil))

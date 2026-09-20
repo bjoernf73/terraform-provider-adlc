@@ -43,13 +43,13 @@ func (r *sshRunner) Run(_ context.Context, command string, stdin string) (Result
 	if err != nil {
 		return Result{}, fmt.Errorf("dialing SSH target: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	session, err := conn.NewSession()
 	if err != nil {
 		return Result{}, fmt.Errorf("creating SSH session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

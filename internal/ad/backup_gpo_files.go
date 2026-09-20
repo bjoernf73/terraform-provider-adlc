@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -78,21 +77,21 @@ func HashBackupGPOContent(files []BackupGPOFile, migrations []BackupGPOMigration
 
 	h := sha256.New()
 	for _, f := range sortedFiles {
-		io.WriteString(h, f.Path)
+		h.Write([]byte(f.Path))
 		h.Write([]byte{0})
-		io.WriteString(h, f.Content)
+		h.Write([]byte(f.Content))
 		h.Write([]byte{0})
 	}
 	for _, m := range sortedMigrations {
-		io.WriteString(h, m.Source)
+		h.Write([]byte(m.Source))
 		h.Write([]byte{0})
-		io.WriteString(h, m.Destination)
+		h.Write([]byte(m.Destination))
 		h.Write([]byte{0})
 		if m.SameAsSource {
 			h.Write([]byte{1})
 		}
 		h.Write([]byte{0})
-		io.WriteString(h, m.Type)
+		h.Write([]byte(m.Type))
 		h.Write([]byte{0})
 	}
 

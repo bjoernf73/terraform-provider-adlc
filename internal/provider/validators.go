@@ -46,13 +46,13 @@ var _ validator.String = oneOfValidator{}
 
 // maxLength validates that a string attribute is at most n characters. Used for
 // sAMAccountName, which AD hard-limits to 20 characters and otherwise fails with the
-// unhelpful "The name provided is not a properly formed account name."
+// unhelpful "The name provided is not a properly formed account name.".
 type maxLengthValidator struct {
 	max int
 }
 
-func maxLength(max int) validator.String {
-	return maxLengthValidator{max: max}
+func maxLength(maxLen int) validator.String {
+	return maxLengthValidator{max: maxLen}
 }
 
 func (v maxLengthValidator) Description(_ context.Context) string {

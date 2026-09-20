@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"sort"
 )
@@ -33,12 +32,12 @@ func HashJsonGPOContent(json string, replacements map[string]string) string {
 	sort.Strings(keys)
 
 	h := sha256.New()
-	io.WriteString(h, json)
+	h.Write([]byte(json))
 	h.Write([]byte{0})
 	for _, k := range keys {
-		io.WriteString(h, k)
+		h.Write([]byte(k))
 		h.Write([]byte{0})
-		io.WriteString(h, replacements[k])
+		h.Write([]byte(replacements[k]))
 		h.Write([]byte{0})
 	}
 
