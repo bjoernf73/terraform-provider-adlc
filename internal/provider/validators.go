@@ -51,6 +51,7 @@ type maxLengthValidator struct {
 	max int
 }
 
+//nolint:unparam // length is a genuine parameter; sAMAccountName (20) is just the only current caller.
 func maxLength(maxLen int) validator.String {
 	return maxLengthValidator{max: maxLen}
 }
