@@ -141,3 +141,46 @@ A manual transport check, for when CI is too slow a feedback loop:
 ADLC_HOST=10.0.13.6 ADLC_USERNAME='CONTOSO\Administrator' ADLC_PASSWORD=... \
   go test ./internal/transport -run TestWinRMSmoke -v
 ```
+
+## Releasing
+
+### Building releases
+
+Releases are **automatically built** via GitHub Actions when you push a tag to the `github` remote:
+
+```sh
+# Create and push a new version
+git tag v1.0.0
+git push github v1.0.0       # Triggers GitHub Actions build and release
+git push origin v1.0.0       # (Optional) Also push to local GitLab
+```
+
+The GitHub Actions workflow ([.github/workflows/release.yml](.github/workflows/release.yml)):
+- Builds binaries for **linux_amd64**, **darwin_amd64**, **darwin_arm64**, **windows_amd64**
+- Creates ZIP archives with proper Terraform naming (`terraform-provider-adlc_v1.0.0_linux_amd64.zip`)
+- Generates SHA256 checksums
+- Creates a GitHub release with all artifacts
+
+### Using the provider from GitHub releases
+
+Users can declare the provider with the GitHub source:
+
+```hcl
+terraform {
+  required_providers {
+    adlc = {
+      source  = "github.com/bjoernf73/terraform-provider-adlc"
+      version = "~> 1.0.0"
+    }
+  }
+}
+```
+
+Terraform will automatically fetch releases from GitHub.
+
+### Future: Publishing to Terraform Registry
+
+When you're ready, register your namespace at [registry.terraform.io](https://registry.terraform.io) and
+Terraform will auto-discover releases. The current workflow is compatible with registry requirements;
+GPG signing can be enabled later by configuring a GPG key in GitHub Secrets and uncommenting
+the `sign` job in the workflow.
