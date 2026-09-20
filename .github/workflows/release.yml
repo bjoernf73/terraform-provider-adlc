@@ -37,7 +37,8 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
         with:
-          args: release --clean
+          # Skip GPG signing until a signing key is configured (secrets.GPG_PRIVATE_KEY).
+          args: release --clean ${{ env.GPG_PRIVATE_KEY == '' && '--skip=sign' || '' }}
         env:
           # GitHub sets the GITHUB_TOKEN secret automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
