@@ -68,7 +68,7 @@ resource "adlc_group" "operators" {
   scope        = "Global"
 }
 
-# Every settable property populated, disabled since no password is set here.
+# Every settable property populated; enabled once adlc_user_password sets a real password.
 resource "adlc_user" "showcase" {
   name                = "ADLC Showcase User"
   sam_account_name    = "adlc-showcase-user"
@@ -109,9 +109,10 @@ resource "adlc_user" "showcase" {
   account_expiration_date = "2099-12-31"
   manager                 = "Administrator"
 
-  # Created disabled: no password is set here, and New-ADUser rejects an empty password
-  # once Enabled is true. adlc_user_password.showcase sets the real password and enables it.
-  enabled                            = false
+  # Created disabled at first apply regardless of this value (New-ADUser rejects an empty
+  # password once Enabled is true); adlc_user_password.showcase sets the real password and
+  # enables it, after which this desired value reconciles cleanly on subsequent applies.
+  enabled                            = true
   password_never_expires             = true
   cannot_change_password             = false
   smart_card_logon_required          = false

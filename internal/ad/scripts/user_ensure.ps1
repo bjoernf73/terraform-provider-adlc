@@ -21,7 +21,13 @@ if ($null -eq $user) {
         Path              = $containerDN
     }
 
-    New-ADUser @newParams @setParams @serverParams -ErrorAction Stop | Out-Null
+    # No AccountPassword is set here, so an empty password fails complexity checks if the
+    # account is created enabled. Force disabled at creation; adlc_user_password (or a later
+    # apply, once a real password exists) reconciles Enabled to the configured value.
+    $createSetParams = $setParams.Clone()
+    $createSetParams.Enabled = $false
+
+    New-ADUser @newParams @createSetParams @serverParams -ErrorAction Stop | Out-Null
     $user = Get-UserByIdentity $targetDN
 }
 else {
