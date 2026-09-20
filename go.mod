@@ -1,6 +1,6 @@
 module github.com/bjoernf73/terraform-provider-adlc
 
-go 1.26.0
+go 1.25
 
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.19.0

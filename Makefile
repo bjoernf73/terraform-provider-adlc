@@ -1,4 +1,4 @@
-.PHONY: build vet fmt test docs docs-check mirror validate clean
+.PHONY: build vet fmt test docs docs-check generate mirror validate clean
 
 # Matches the version pinned in test/e2e/main.tf.
 PROVIDER_VERSION ?= 0.0.0-ci
@@ -18,6 +18,10 @@ fmt:
 
 test:
 	go test ./...
+
+# Regenerates docs/ from the provider schema, examples/ and templates/.
+generate: docs
+	@echo "Documentation generated"
 
 # Builds the provider into a local filesystem mirror and writes a CLI config
 # pointing at it, so terraform can run against the working tree.
