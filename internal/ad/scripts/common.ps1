@@ -97,6 +97,22 @@ function Test-IsIdentityNotFound([System.Management.Automation.ErrorRecord]$Erro
     return $false
 }
 
+function Test-IsIdentityAlreadyExists([System.Management.Automation.ErrorRecord]$ErrorRecord) {
+    if ($null -eq $ErrorRecord) {
+        return $false
+    }
+
+    if ($ErrorRecord.CategoryInfo.Reason -eq 'ADIdentityAlreadyExistsException') {
+        return $true
+    }
+
+    if ($null -ne $ErrorRecord.Exception -and $ErrorRecord.Exception.Message -match 'already exists') {
+        return $true
+    }
+
+    return $false
+}
+
 function ConvertTo-LDAPFilterValue([string]$Value) {
     # RFC 4515 escaping: these characters are otherwise filter syntax.
     $builder = New-Object System.Text.StringBuilder

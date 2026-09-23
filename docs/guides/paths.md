@@ -72,6 +72,47 @@ Nothing in the relative path names the domain, so the same module applies unchan
 and `adlc_access_rule` do not — they expect the container to exist, and fail if it does
 not.
 
+## Implicitly created parent OUs
+
+When a path names OUs that do not yet exist, `adlc_organizational_unit` creates each
+missing parent, not only the leaf. Every parent it actually creates is recorded on the
+resource that created it — exposed as the read-only `created_organizational_units`
+attribute — and removed again when that resource is destroyed. Parents that already
+existed are never recorded and are never touched on destroy. In short: if the provider
+created an OU, it owns its lifecycle; if it did not, it leaves it alone.
+
+Recorded parents are removed **deepest first, and only while empty**. An OU is never
+deleted while it still contains anything — including objects the provider did not create.
+So if you remove an `adlc_organizational_unit` from your configuration and one of the OUs
+it originally created has since been populated (by hand, by another tool, or by a
+resource whose path merely passes through it), that OU is kept, and only the empty parts
+of the branch below the leaf are cleaned up. Nothing you did not ask the provider to
+manage is destroyed as a side effect.
+
+Because these implicit parents live inside the state of a single resource rather than as
+separate resources, they cannot be addressed, imported, or moved individually. To keep
+ownership explicit and predictable, **declare every OU in a path as its own
+`adlc_organizational_unit` resource** and build deeper paths from
+`distinguished_name`:
+
+```hcl
+resource "adlc_organizational_unit" "contoso" {
+  path = "Contoso"
+}
+
+resource "adlc_organizational_unit" "servers" {
+  path = "${adlc_organizational_unit.contoso.path}/Servers"
+}
+
+resource "adlc_organizational_unit" "windows" {
+  path = "${adlc_organizational_unit.servers.path}/Windows"
+}
+```
+
+Declaring each level makes every OU independently addressable, gives Terraform an explicit
+create/destroy order through the dependency edges, and avoids a shared implicit parent
+being left behind after a destroy.
+
 ## Relative distinguished names
 
 Slash paths imply `OU=`, which covers most of a directory but not all of it. Several

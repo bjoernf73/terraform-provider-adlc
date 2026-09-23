@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -30,12 +31,13 @@ type organizationalUnitResource struct {
 }
 
 type organizationalUnitResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Path              types.String `tfsdk:"path"`
-	Description       types.String `tfsdk:"description"`
-	DeleteSubtree     types.Bool   `tfsdk:"delete_subtree"`
-	DistinguishedName types.String `tfsdk:"distinguished_name"`
-	Name              types.String `tfsdk:"name"`
+	ID                         types.String `tfsdk:"id"`
+	Path                       types.String `tfsdk:"path"`
+	Description                types.String `tfsdk:"description"`
+	DeleteSubtree              types.Bool   `tfsdk:"delete_subtree"`
+	DistinguishedName          types.String `tfsdk:"distinguished_name"`
+	Name                       types.String `tfsdk:"name"`
+	CreatedOrganizationalUnits types.List   `tfsdk:"created_organizational_units"`
 }
 
 func (r *organizationalUnitResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -82,6 +84,14 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"created_organizational_units": schema.ListAttribute{
+				Computed:            true,
+				ElementType:         types.StringType,
+				MarkdownDescription: "Distinguished names of ancestor OUs this resource created because they did not already exist. They are removed on destroy, deepest first, but only while empty. Pre-existing OUs in the path are never recorded here and are left untouched on destroy.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -113,13 +123,20 @@ func (r *organizationalUnitResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
+	createdOUs, diags := types.ListValueFrom(ctx, types.StringType, orEmptyStrings(ou.CreatedOrganizationalUnits))
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	state := organizationalUnitResourceModel{
-		ID:                types.StringValue(ou.DistinguishedName),
-		Path:              types.StringValue(ou.Path),
-		DeleteSubtree:     plan.DeleteSubtree,
-		DistinguishedName: types.StringValue(ou.DistinguishedName),
-		Name:              types.StringValue(ou.Name),
-		Description:       stringPointerToTerraform(ou.Description),
+		ID:                         types.StringValue(ou.DistinguishedName),
+		Path:                       types.StringValue(ou.Path),
+		DeleteSubtree:              plan.DeleteSubtree,
+		DistinguishedName:          types.StringValue(ou.DistinguishedName),
+		Name:                       types.StringValue(ou.Name),
+		Description:                stringPointerToTerraform(ou.Description),
+		CreatedOrganizationalUnits: createdOUs,
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -174,12 +191,13 @@ func (r *organizationalUnitResource) Update(ctx context.Context, req resource.Up
 	}
 
 	newState := organizationalUnitResourceModel{
-		ID:                types.StringValue(ou.DistinguishedName),
-		Path:              types.StringValue(ou.Path),
-		DeleteSubtree:     plan.DeleteSubtree,
-		DistinguishedName: types.StringValue(ou.DistinguishedName),
-		Name:              types.StringValue(ou.Name),
-		Description:       stringPointerToTerraform(ou.Description),
+		ID:                         types.StringValue(ou.DistinguishedName),
+		Path:                       types.StringValue(ou.Path),
+		DeleteSubtree:              plan.DeleteSubtree,
+		DistinguishedName:          types.StringValue(ou.DistinguishedName),
+		Name:                       types.StringValue(ou.Name),
+		Description:                stringPointerToTerraform(ou.Description),
+		CreatedOrganizationalUnits: state.CreatedOrganizationalUnits,
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &newState)...)
@@ -197,7 +215,15 @@ func (r *organizationalUnitResource) Delete(ctx context.Context, req resource.De
 		deleteSubtree = state.DeleteSubtree.ValueBool()
 	}
 
-	if err := ad.DeleteOrganizationalUnit(ctx, r.client, state.DistinguishedName.ValueString(), deleteSubtree); err != nil {
+	var createdOUs []string
+	if !state.CreatedOrganizationalUnits.IsNull() && !state.CreatedOrganizationalUnits.IsUnknown() {
+		resp.Diagnostics.Append(state.CreatedOrganizationalUnits.ElementsAs(ctx, &createdOUs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if err := ad.DeleteOrganizationalUnit(ctx, r.client, state.DistinguishedName.ValueString(), deleteSubtree, createdOUs); err != nil {
 		resp.Diagnostics.AddError("Unable to delete organizational unit", err.Error())
 	}
 }
@@ -220,4 +246,11 @@ func stringPointerToTerraform(value *string) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(*value)
+}
+
+func orEmptyStrings(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
 }

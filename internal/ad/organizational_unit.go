@@ -21,6 +21,9 @@ type OrganizationalUnit struct {
 	DistinguishedName string  `json:"distinguished_name"`
 	Name              string  `json:"name"`
 	Exists            bool    `json:"exists"`
+	// Distinguished names of ancestor OUs this resource created because they did not exist.
+	// Populated by the ensure operation only; removed on delete while empty.
+	CreatedOrganizationalUnits []string `json:"created_organizational_units"`
 }
 
 func EnsureOrganizationalUnit(ctx context.Context, c *client.Client, path string, description *string) (*OrganizationalUnit, error) {
@@ -73,10 +76,11 @@ func UpdateOrganizationalUnitDescription(ctx context.Context, c *client.Client, 
 	return &result, nil
 }
 
-func DeleteOrganizationalUnit(ctx context.Context, c *client.Client, distinguishedName string, deleteSubtree bool) error {
+func DeleteOrganizationalUnit(ctx context.Context, c *client.Client, distinguishedName string, deleteSubtree bool, createdOrganizationalUnits []string) error {
 	script, err := buildScript(c, map[string]any{
-		"distinguished_name": distinguishedName,
-		"delete_subtree":     deleteSubtree,
+		"distinguished_name":           distinguishedName,
+		"delete_subtree":               deleteSubtree,
+		"created_organizational_units": createdOrganizationalUnits,
 	}, commonScript, organizationalUnitCommon, organizationalUnitDelete)
 	if err != nil {
 		return err

@@ -39,6 +39,7 @@ resource "adlc_organizational_unit" "linux" {
 
 ### Read-Only
 
+- `created_organizational_units` (List of String) Distinguished names of ancestor OUs this resource created because they did not already exist. They are removed on destroy, deepest first, but only while empty. Pre-existing OUs in the path are never recorded here and are left untouched on destroy.
 - `distinguished_name` (String) Distinguished name of the organizational unit.
 - `id` (String) Terraform resource identifier. Equals the organizational unit distinguished name.
 - `name` (String) Leaf organizational unit name.
