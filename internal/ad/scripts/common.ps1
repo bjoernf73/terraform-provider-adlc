@@ -223,3 +223,105 @@ function Assert-NotAdminCountProtected([string]$DistinguishedName, [bool]$Ignore
         "reset by SDProp to match AdminSDHolder, so any ACE added here will be silently reverted. " +
         "Set ignore_admin_count_1 = true to proceed anyway."
 }
+
+# ---------------------------------------------------------------------------
+# Event logging
+#
+# Every operation that changes AD, and every operation that fails, records an entry in a
+# classic Windows event log named 'terraform-provider-adlc' on the target host. Each
+# operation script logs under its own source (the script file name without the .ps1
+# extension) so entries can be filtered per operation. The log and each source are created
+# on demand. The *-EventLog cmdlets were removed from PowerShell 7, so the .NET
+# System.Diagnostics.EventLog API is used directly.
+# ---------------------------------------------------------------------------
+
+$script:ADLCEventLogName = 'terraform-provider-adlc'
+
+# Key names whose values must never be written to the event log in cleartext.
+$script:ADLCSensitiveKeyPattern = 'password|passphrase|secret|credential|private_key|pfx|token'
+
+# Ensures the classic event log and the given source both exist. CreateEventSource creates
+# the log too when it is missing. Requires administrator rights on the target host and is a
+# no-op once the source is registered.
+function Register-ADLCEventSource([string]$Source) {
+    if ([string]::IsNullOrWhiteSpace($Source)) {
+        return
+    }
+
+    if ([System.Diagnostics.EventLog]::SourceExists($Source)) {
+        return
+    }
+
+    [System.Diagnostics.EventLog]::CreateEventSource($Source, $script:ADLCEventLogName)
+}
+
+# Writes one entry to the provider event log, registering the source on first use. Logging
+# must never mask the operation it describes, so permission or registration failures are
+# swallowed.
+function Write-ADLCEvent {
+    param(
+        [string]$Source,
+        [System.Diagnostics.EventLogEntryType]$EntryType = [System.Diagnostics.EventLogEntryType]::Information,
+        [string]$Message,
+        [int]$EventId = 1000
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Source)) {
+        return
+    }
+
+    try {
+        Register-ADLCEventSource $Source
+        [System.Diagnostics.EventLog]::WriteEntry($Source, $Message, $EntryType, $EventId)
+    }
+    catch {
+        # Best effort only: never let an event-log failure break the AD operation.
+    }
+}
+
+# Renders $payload as JSON for inclusion in log entries, masking values whose key names
+# look like secrets so passwords never reach the event log in cleartext.
+function Get-ADLCInputText {
+    if ($null -eq $payload) {
+        return '<no input>'
+    }
+
+    try {
+        $redacted = [ordered]@{}
+        foreach ($property in $payload.PSObject.Properties) {
+            if ($property.Name -match $script:ADLCSensitiveKeyPattern) {
+                $redacted[$property.Name] = '***redacted***'
+            }
+            else {
+                $redacted[$property.Name] = $property.Value
+            }
+        }
+
+        return ([pscustomobject]$redacted | ConvertTo-Json -Depth 10 -Compress)
+    }
+    catch {
+        return '<input could not be serialized>'
+    }
+}
+
+# Logs a completed change together with the script input. Called automatically after a
+# mutating operation body succeeds.
+function Write-ADLCChange([string]$Source, [string]$Message) {
+    $entry = "$Message`nInput: $(Get-ADLCInputText)"
+    Write-ADLCEvent -Source $Source -EntryType ([System.Diagnostics.EventLogEntryType]::Information) -Message $entry -EventId 1000
+}
+
+# Logs a failed operation with the script input and the error message. Called automatically
+# when an operation body throws.
+function Write-ADLCFailure([string]$Source, [System.Management.Automation.ErrorRecord]$ErrorRecord) {
+    $errorText = '<unknown error>'
+    if ($null -ne $ErrorRecord) {
+        $errorText = [string]$ErrorRecord.Exception.Message
+        if (-not [string]::IsNullOrWhiteSpace([string]$ErrorRecord.ScriptStackTrace)) {
+            $errorText += "`n" + [string]$ErrorRecord.ScriptStackTrace
+        }
+    }
+
+    $entry = "Operation '$Source' failed.`nInput: $(Get-ADLCInputText)`nError: $errorText"
+    Write-ADLCEvent -Source $Source -EntryType ([System.Diagnostics.EventLogEntryType]::Error) -Message $entry -EventId 1001
+}
