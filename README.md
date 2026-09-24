@@ -4,10 +4,6 @@ A Terraform **Active Directory Lifecycle** provider that manages Active Director
 objects and policy through **PowerShell 7** on a remote Windows host over **WinRM**
 or **SSH**.
 
-There is no LDAP client. Every operation is a PowerShell script that runs on a host with
-the `ActiveDirectory` module — normally a domain controller — and returns a single JSON
-document that the provider decodes.
-
 ## Resources
 
 | Resource | Manages |
@@ -39,7 +35,7 @@ document that the provider decodes.
 
 ## Documentation
 
-Full documentation lives in [docs/](docs/) and is published to the Terraform Registry:
+Full documentation lives in [docs/](docs/):
 
 - [Provider configuration and authentication](docs/index.md)
 - [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
@@ -105,9 +101,16 @@ resource "adlc_access_rule" "delegate_computers" {
 
 - PowerShell 7 (`pwsh`) on the target host
 - The `ActiveDirectory` PowerShell module
+- The `GroupPolicy` PowerShell module
 - WinRM or OpenSSH reachable from wherever Terraform runs
 
 ## Transports
+You should be able to use this provider on linux and windows, and probably mac. It is (sporadically) tested on gitlab runners running in a kubernetes cluster and virtual windows core and linux boxes. Mac and freebsd probably works, but then again, might not. SSH-transport is a priority, winrm over https also.  
+
+> [!WARNING]
+> A full guide on connecting — WinRM over HTTPS, Kerberos requirements and SSH with keys —
+> will eventually surface in [docs/](docs/). Until then the notes below are the short version. I will strongly urge you to do winrm over https for now. 
+
 
 | Transport | Authentication |
 | --- | --- |
@@ -116,12 +119,10 @@ resource "adlc_access_rule" "delegate_computers" {
 
 Notes that save time:
 
-- WinRM `basic` accepts **local accounts only**, so it cannot authenticate a domain
-  account against a domain controller.
-- `ntlm` over plain HTTP (5985) needs `AllowUnencrypted = true` on the WinRM service,
-  because the library applies no NTLM message encryption. HTTPS on 5986 avoids this.
-- `kerberos` needs the target FQDN, not an IP address, because the SPN is derived from
-  the host name.
+- plain HTTP (5985) is very difficult to achieve - there seems to be multiple mechanisms in the Windows OS to prevent you from using that, at least in later versions. Rather enable winrm over https on 5986 using a self-signed certificate - that is done in minutes. Trying to make a domain controller allow you to authenticate over http (5985) will terraform destroy your life and willpower - it's not worth it. 
+- `kerberos` of course needs the target FQDN, not an IP address, because the SPN is derived from
+  the host name. There are other requirements as well. 
+- really try SSH on port 22 using an ssh key. I recomment that. A guide in `docs` will guide you through it. 
 
 ## Development
 
@@ -161,26 +162,97 @@ The GitHub Actions workflow ([.github/workflows/release.yml](.github/workflows/r
 - Generates SHA256 checksums
 - Creates a GitHub release with all artifacts
 
-### Using the provider from GitHub releases
+### Installing a provider from GitHub releases
 
-Users can declare the provider with the GitHub source:
+Terraform cannot install a provider directly from a GitHub `source`. The `source` in
+`required_providers` is a *registry* address (`hostname/namespace/type`), and the host
+must implement Terraform's provider registry protocol. `github.com` does not, so
+`source = "github.com/bjoernf73/terraform-provider-adlc"` fails at `terraform init`.
 
-```hcl
-terraform {
-  required_providers {
-    adlc = {
-      source  = "github.com/bjoernf73/terraform-provider-adlc"
-      version = "~> 1.0.0"
-    }
-  }
-}
+Until the provider is published to a registry, install a release manually via a
+filesystem mirror:
+
+1. Download the archive for your platform from the GitHub release, for example
+   `terraform-provider-adlc_v1.0.0_linux_amd64.zip`.
+2. Extract the binary into the local plugin mirror using the standard directory layout
+   (`<mirror>/<hostname>/<namespace>/<type>/<version>/<os>_<arch>/`):
+
+   ```
+   ~/.terraform.d/plugins/registry.terraform.io/bjoernf73/adlc/1.0.0/linux_amd64/terraform-provider-adlc_v1.0.0
+   ```
+
+   On Windows the mirror lives under `%APPDATA%\terraform.d\plugins`.
+3. Declare the provider with its registry-style source:
+
+   ```hcl
+   terraform {
+     required_providers {
+       adlc = {
+         source  = "bjoernf73/adlc"
+         version = "1.0.0"
+       }
+     }
+   }
+   ```
+
+Terraform resolves `bjoernf73/adlc` to `registry.terraform.io/bjoernf73/adlc` and finds
+the extracted binary in the mirror without contacting the network. For local development
+against a freshly built binary, a `dev_overrides` block in a Terraform CLI config file is
+usually more convenient.
+
+### In a CI pipeline
+
+You probably already have a pipeline running Terraform. The same filesystem-mirror idea
+works there: download the release into a **packed** mirror and point Terraform at it with
+a generated CLI config, so `terraform init` installs the provider from the mirror instead
+of the public registry. This GitLab job (Windows runner) does exactly that:
+
+```yaml
+prepare:
+  stage: prepare
+  variables:
+    PROVIDER_VERSION: "1.0.0"
+    PROVIDER_MIRROR: "$CI_PROJECT_DIR/.provider-mirror"
+    TF_CLI_CONFIG_FILE: "$CI_PROJECT_DIR/.terraformrc"
+  script:
+    # Pin the provider version in main.tf (Terraform forbids variables in required_providers).
+    - (Get-Content main.tf) -replace '__PROVIDER_VERSION__', $env:PROVIDER_VERSION | Set-Content main.tf -Encoding ascii
+    # Packed layout: <mirror>/<host>/<namespace>/<type>/terraform-provider-<type>_<version>_<os>_<arch>.zip
+    # The version here must NOT carry a leading "v", even though the release asset does.
+    - $Mirror = "$env:PROVIDER_MIRROR/registry.terraform.io/bjoernf73/adlc"
+    - New-Item -ItemType Directory -Force -Path $Mirror | Out-Null
+    - $Zip = "$Mirror/terraform-provider-adlc_$($env:PROVIDER_VERSION)_windows_amd64.zip"
+    - $Url = "https://github.com/bjoernf73/terraform-provider-adlc/releases/download/v$($env:PROVIDER_VERSION)/terraform-provider-adlc_$($env:PROVIDER_VERSION)_windows_amd64.zip"
+    - Invoke-WebRequest -Uri $Url -OutFile $Zip
+    # Point terraform at the mirror instead of the public registry (the provider isn't published there).
+    # HCL treats backslashes as escapes, so use forward slashes for the Windows path.
+    - $MirrorHcl = $env:PROVIDER_MIRROR -replace '\\','/'
+    - |
+      @"
+      provider_installation {
+        filesystem_mirror {
+          path    = "$MirrorHcl"
+          include = ["registry.terraform.io/bjoernf73/adlc"]
+        }
+        direct {
+          exclude = ["registry.terraform.io/bjoernf73/adlc"]
+        }
+      }
+      "@ | Set-Content -Path $env:TF_CLI_CONFIG_FILE -Encoding ascii
+    # Provider-only init: install from the mirror without touching a backend/state yet.
+    - terraform init -backend=false
+  artifacts:
+    paths:
+      - .provider-mirror/
+      - .terraformrc
+      - .terraform.lock.hcl
+      - main.tf
 ```
 
-Terraform will automatically fetch releases from GitHub.
+Later stages inherit `TF_CLI_CONFIG_FILE` and the artifacts above, so their own
+`terraform init` (with the real backend) resolves the provider from the mirror rather than
+the network.
 
 ### Future: Publishing to Terraform Registry
 
-When you're ready, register your namespace at [registry.terraform.io](https://registry.terraform.io) and
-Terraform will auto-discover releases. The current workflow is compatible with registry requirements;
-GPG signing can be enabled later by configuring a GPG key in GitHub Secrets and uncommenting
-the `sign` job in the workflow.
+The provider is currently not published to Terraform Registry. At some point, when it becomes stable, it may. 
