@@ -420,7 +420,8 @@ resource "adlc_access_rule" "temporary_delegation" {
 Expect this resource to show drift on a roughly hourly cadence once SDProp runs, since
 the ACE will keep disappearing and Terraform will keep re-adding it. That drift is the
 correct, expected signal that the delegation is fighting `AdminSDHolder` — the usual fix
-is to delegate on a different, non-protected object instead of overriding the check.
+is to delegate on a different, non-protected object instead of overriding the check, or 
+if you're a rock'n'roll kinda guy - change the ACL on AdminSDHolder itself.
 
 ## What this resource does not touch
 
@@ -484,6 +485,7 @@ Common `ActiveDirectoryRights` values:
 | `GenericWrite` | Write properties and validated writes |
 | `CreateChild` / `DeleteChild` | Create or delete child objects of `object_type` |
 | `ReadProperty` / `WriteProperty` | Read or write the attribute or property set named by `object_type` |
+| `Delete` | Delete the target object itself |
 | `DeleteTree` | Delete an object and its whole subtree |
 | `ExtendedRight` | Exercise the extended right named by `object_type` — see [Extended rights](#extended-rights) |
 | `ReadControl` / `WriteDacl` / `WriteOwner` | Read or modify the security descriptor |

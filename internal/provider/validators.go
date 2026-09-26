@@ -82,3 +82,83 @@ func (v maxLengthValidator) ValidateString(ctx context.Context, req validator.St
 }
 
 var _ validator.String = maxLengthValidator{}
+
+// gmsaSamAccountName validates a group managed service account name. AD appends a trailing
+// '$' to the sAMAccountName, so a single trailing '$' the user supplies is ignored and the
+// remainder must be at most max characters (19, since the stored value including '$' is
+// capped at 20).
+type gmsaSamAccountNameValidator struct {
+	max int
+}
+
+func gmsaSamAccountName(maxLen int) validator.String {
+	return gmsaSamAccountNameValidator{max: maxLen}
+}
+
+func (v gmsaSamAccountNameValidator) Description(_ context.Context) string {
+	return fmt.Sprintf("value must be at most %d characters, excluding an optional trailing '$'", v.max)
+}
+
+func (v gmsaSamAccountNameValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v gmsaSamAccountNameValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	value := strings.TrimSuffix(req.ConfigValue.ValueString(), "$")
+	if len(value) <= v.max {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		req.Path,
+		"Invalid attribute value",
+		fmt.Sprintf("Attribute %s %s, got %d characters: %q", req.Path, v.Description(ctx), len(value), value),
+	)
+}
+
+var _ validator.String = gmsaSamAccountNameValidator{}
+
+// setValuesOneOf validates that every element of a set is one of the allowed values.
+type setValuesOneOfValidator struct {
+	allowed []string
+}
+
+func setValuesOneOf(allowed ...string) validator.Set {
+	return setValuesOneOfValidator{allowed: allowed}
+}
+
+func (v setValuesOneOfValidator) Description(_ context.Context) string {
+	return fmt.Sprintf("each value must be one of: %s", strings.Join(v.allowed, ", "))
+}
+
+func (v setValuesOneOfValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v setValuesOneOfValidator) ValidateSet(ctx context.Context, req validator.SetRequest, resp *validator.SetResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	var values []string
+	resp.Diagnostics.Append(req.ConfigValue.ElementsAs(ctx, &values, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, value := range values {
+		if !slices.Contains(v.allowed, value) {
+			resp.Diagnostics.AddAttributeError(
+				req.Path,
+				"Invalid attribute value",
+				fmt.Sprintf("Attribute %s %s, got: %s", req.Path, v.Description(ctx), value),
+			)
+		}
+	}
+}
+
+var _ validator.Set = setValuesOneOfValidator{}
