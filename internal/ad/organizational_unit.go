@@ -59,10 +59,12 @@ func ReadOrganizationalUnit(ctx context.Context, c *client.Client, distinguished
 	return &result, nil
 }
 
-func UpdateOrganizationalUnitDescription(ctx context.Context, c *client.Client, distinguishedName string, description *string) (*OrganizationalUnit, error) {
+func UpdateOrganizationalUnit(ctx context.Context, c *client.Client, distinguishedName string, path string, description *string, createdOrganizationalUnits []string) (*OrganizationalUnit, error) {
 	script, err := buildScript(c, map[string]any{
-		"distinguished_name": distinguishedName,
-		"description":        description,
+		"distinguished_name":           distinguishedName,
+		"path":                         NormalizePath(path),
+		"description":                  description,
+		"created_organizational_units": createdOrganizationalUnits,
 	}, commonScript, organizationalUnitCommon, organizationalUnitUpdate)
 	if err != nil {
 		return nil, err

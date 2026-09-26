@@ -30,7 +30,7 @@ resource "adlc_organizational_unit" "linux" {
 
 ### Required
 
-- `path` (String) OU path relative to the domain root. Use slash-delimited segments such as `Servers/Windows`, a relative DN such as `OU=Servers`, or a full DN. Slash segments are always OU names, even when one matches the domain name.
+- `path` (String) OU path relative to the domain root. Use slash-delimited segments such as `Servers/Windows`, a relative DN such as `OU=Servers`, or a full DN. Slash segments are always OU names, even when one matches the domain name. Changing the path moves and/or renames the OU in place, so every child object—managed or not—moves with it and the OU keeps its GUID, GPO links and ACLs.
 
 ### Optional
 

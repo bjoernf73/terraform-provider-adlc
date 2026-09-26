@@ -113,6 +113,43 @@ Declaring each level makes every OU independently addressable, gives Terraform a
 create/destroy order through the dependency edges, and avoids a shared implicit parent
 being left behind after a destroy.
 
+## Moving or renaming an OU
+
+Changing `path` on an existing `adlc_organizational_unit` **moves and/or renames the OU in
+place** — it is not destroyed and recreated. The OU keeps its GUID, and therefore keeps its
+GPO links, ACLs and any other references that point at it. Every object it contains moves
+with it, whether or not the provider manages it: child OUs, groups, users, computers, and
+anything created by hand or another tool.
+
+This matters because a rename is really two edits — the OU's own location and the paths of
+everything beneath it — that must happen as one operation. Consider an OU created at
+`Groups/Tier0` holding a couple of security groups whose own `path` is derived from it:
+
+```hcl
+resource "adlc_organizational_unit" "tier0" {
+  path = "Groups/Tier0" # later changed to "Tier0/Groups"
+}
+
+resource "adlc_group" "admins" {
+  name = "Tier0 Admins"
+  path = adlc_organizational_unit.tier0.path
+}
+```
+
+When you change the path to `Tier0/Groups`, the OU update runs first: it creates the new
+parent (`OU=Tier0`), then moves and renames the leaf so it becomes `Tier0/Groups`, carrying
+the two groups along. By the time the `adlc_group` resources are reconciled they are already
+in the right container, so their move is a no-op. Nothing is deleted, so there is never a
+moment where AD is asked to remove a non-empty OU.
+
+Because the move is in place, the change is a normal `~ update`, not a `-/+ replacement`, and
+attributes derived from the OU (its `distinguished_name`, and the child groups' resolved
+DNs) show as *known after apply* while the path is changing.
+
+Any parent OUs the resource originally created that are left empty by the move are cleaned
+up afterwards, deepest first and only while empty — the same rule that applies on destroy.
+Pre-existing parents, and parents that still hold other objects, are left untouched.
+
 ## Relative distinguished names
 
 Slash paths imply `OU=`, which covers most of a directory but not all of it. Several

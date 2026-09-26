@@ -7,9 +7,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/bjoernf73/terraform-provider-adlc/internal/ad"
@@ -52,15 +51,12 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 				Computed:            true,
 				MarkdownDescription: "Terraform resource identifier. Equals the organizational unit distinguished name.",
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateForUnknownUnlessPathChanges{},
 				},
 			},
 			"path": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "OU path relative to the domain root. Use slash-delimited segments such as `Servers/Windows`, a relative DN such as `OU=Servers`, or a full DN. Slash segments are always OU names, even when one matches the domain name.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				MarkdownDescription: "OU path relative to the domain root. Use slash-delimited segments such as `Servers/Windows`, a relative DN such as `OU=Servers`, or a full DN. Slash segments are always OU names, even when one matches the domain name. Changing the path moves and/or renames the OU in place, so every child object—managed or not—moves with it and the OU keeps its GUID, GPO links and ACLs.",
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
@@ -74,14 +70,14 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 				Computed:            true,
 				MarkdownDescription: "Distinguished name of the organizational unit.",
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateForUnknownUnlessPathChanges{},
 				},
 			},
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Leaf organizational unit name.",
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateForUnknownUnlessPathChanges{},
 				},
 			},
 			"created_organizational_units": schema.ListAttribute{
@@ -89,7 +85,7 @@ func (r *organizationalUnitResource) Schema(_ context.Context, _ resource.Schema
 				ElementType:         types.StringType,
 				MarkdownDescription: "Distinguished names of ancestor OUs this resource created because they did not already exist. They are removed on destroy, deepest first, but only while empty. Pre-existing OUs in the path are never recorded here and are left untouched on destroy.",
 				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
+					listUseStateForUnknownUnlessPathChanges{},
 				},
 			},
 		},
@@ -184,9 +180,23 @@ func (r *organizationalUnitResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	ou, err := ad.UpdateOrganizationalUnitDescription(ctx, r.client, state.DistinguishedName.ValueString(), optionalString(plan.Description))
+	var createdOUs []string
+	if !state.CreatedOrganizationalUnits.IsNull() && !state.CreatedOrganizationalUnits.IsUnknown() {
+		resp.Diagnostics.Append(state.CreatedOrganizationalUnits.ElementsAs(ctx, &createdOUs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	ou, err := ad.UpdateOrganizationalUnit(ctx, r.client, state.DistinguishedName.ValueString(), plan.Path.ValueString(), optionalString(plan.Description), createdOUs)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to update organizational unit", err.Error())
+		return
+	}
+
+	createdOUList, diags := types.ListValueFrom(ctx, types.StringType, orEmptyStrings(ou.CreatedOrganizationalUnits))
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -197,7 +207,7 @@ func (r *organizationalUnitResource) Update(ctx context.Context, req resource.Up
 		DistinguishedName:          types.StringValue(ou.DistinguishedName),
 		Name:                       types.StringValue(ou.Name),
 		Description:                stringPointerToTerraform(ou.Description),
-		CreatedOrganizationalUnits: state.CreatedOrganizationalUnits,
+		CreatedOrganizationalUnits: createdOUList,
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &newState)...)
@@ -253,4 +263,66 @@ func orEmptyStrings(values []string) []string {
 		return []string{}
 	}
 	return values
+}
+
+// ouPathChanges reports whether the planned OU path differs from the prior state path. It is
+// conservative: any ambiguity (unknown/null values) counts as a change so dependent computed
+// attributes fall back to "known after apply" rather than a stale value.
+func ouPathChanges(ctx context.Context, plan tfsdk.Plan, state tfsdk.State) bool {
+	var planPath types.String
+	var statePath types.String
+	plan.GetAttribute(ctx, path.Root("path"), &planPath)
+	state.GetAttribute(ctx, path.Root("path"), &statePath)
+
+	if planPath.IsNull() || planPath.IsUnknown() || statePath.IsNull() || statePath.IsUnknown() {
+		return true
+	}
+
+	return ad.NormalizePath(planPath.ValueString()) != ad.NormalizePath(statePath.ValueString())
+}
+
+// useStateForUnknownUnlessPathChanges copies the prior state value into the plan (like
+// UseStateForUnknown) but only while the path is unchanged. When the path changes the OU is
+// moved/renamed, so the value must resolve to "known after apply" to avoid an inconsistent
+// result after apply.
+type useStateForUnknownUnlessPathChanges struct{}
+
+func (m useStateForUnknownUnlessPathChanges) Description(_ context.Context) string {
+	return "Use prior state for unknown values unless the path attribute changes."
+}
+
+func (m useStateForUnknownUnlessPathChanges) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m useStateForUnknownUnlessPathChanges) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.StateValue.IsNull() || !resp.PlanValue.IsUnknown() {
+		return
+	}
+	if ouPathChanges(ctx, req.Plan, req.State) {
+		return
+	}
+	resp.PlanValue = req.StateValue
+}
+
+// listUseStateForUnknownUnlessPathChanges is the list-typed counterpart used for
+// created_organizational_units.
+type listUseStateForUnknownUnlessPathChanges struct{}
+
+func (m listUseStateForUnknownUnlessPathChanges) Description(_ context.Context) string {
+	return "Use prior state for unknown values unless the path attribute changes."
+}
+
+func (m listUseStateForUnknownUnlessPathChanges) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m listUseStateForUnknownUnlessPathChanges) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	if req.StateValue.IsNull() || !resp.PlanValue.IsUnknown() {
+		return
+	}
+	if ouPathChanges(ctx, req.Plan, req.State) {
+		return
+	}
+	resp.PlanValue = req.StateValue
 }
