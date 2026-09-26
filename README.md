@@ -9,10 +9,12 @@ or **SSH**.
 | Resource | Manages |
 | --- | --- |
 | `adlc_organizational_unit` | Organizational units, creating missing parents on demand |
-| `adlc_group` | Groups, including rename and move |
+| `adlc_group` | Groups: `Security` or `Distribution` category, `DomainLocal`, `Global` or `Universal` scope |
 | `adlc_group_member` | A single group membership |
-| `adlc_user` | User accounts, including rename and move. Passwords are not managed here. |
+| `adlc_user` | User accounts. Passwords are not managed here. |
 | `adlc_user_password` | Sets a user's initial password, generated or supplied |
+| `adlc_gmsa` | Group managed service accounts |
+| `adlc_kds_root_key` | Ensures a forest KDS root key exists (the gMSA prerequisite) |
 | `adlc_access_rule` | A single access control entry (ACE) on any directory object |
 | `adlc_backup_gpo` | Imports a `Backup-GPO` folder into a GPO |
 | `adlc_json_gpo` | Imports a JSON-described GPO |
