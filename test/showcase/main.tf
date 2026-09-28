@@ -329,6 +329,127 @@ resource "adlc_access_rule" "read_computers_container" {
   inheritance = "Descendents"
 }
 
+# Forest-wide prerequisite for group managed service accounts. effective_immediately
+# backdates the key by 10 hours so the gMSAs below can be created without waiting for the
+# replication safety window; sound here because the CI target is a single-DC forest. Destroy
+# only drops it from Terraform state, since a KDS root key cannot be removed from AD.
+resource "adlc_kds_root_key" "showcase" {
+  effective_immediately = true
+}
+
+# Pre-staged computer accounts (New-ADComputer creates them disabled). They exist to be
+# referenced as gMSA principals and to be read back through the adlc_computer data source; a
+# real host would later domain-join under the same name.
+resource "adlc_computer" "web" {
+  for_each = toset(["web01", "web02"])
+
+  name = each.value
+  path = adlc_organizational_unit.child["Servers"].path
+}
+
+# A computer with every settable property populated, so the result can be inspected in ADUC.
+resource "adlc_computer" "app01" {
+  name             = "app01"
+  sam_account_name = "app01"
+  dns_host_name    = "app01.${data.adlc_domain.current.dns_root}"
+  path             = adlc_organizational_unit.child["Servers"].path
+
+  description         = "Showcase application server, every property set by Terraform."
+  display_name        = "APP01"
+  location            = "Showcase DC / Rack 1"
+  user_principal_name = "host/app01.${data.adlc_domain.current.dns_root}"
+  managed_by          = adlc_group.admins.distinguished_name
+
+  kerberos_encryption_type = ["AES128", "AES256"]
+  service_principal_names = [
+    "HOST/app01.${data.adlc_domain.current.dns_root}",
+    "HOST/app01",
+  ]
+
+  enabled                            = false
+  trusted_for_delegation             = false
+  account_not_delegated              = true
+  compound_identity_supported        = true
+  protected_from_accidental_deletion = true
+}
+
+# Reads a pre-staged account back through the data source, proving computers that a
+# configuration does not manage can still be referenced by identity.
+data "adlc_computer" "app01" {
+  identity = adlc_computer.app01.distinguished_name
+}
+
+# Minimal gMSA: required attributes plus a single group principal.
+resource "adlc_gmsa" "minimal" {
+  name          = "adlc-svc-min"
+  dns_host_name = "adlc-svc-min.${data.adlc_domain.current.dns_root}"
+  path          = adlc_organizational_unit.child["ServiceAccounts"].path
+
+  principals_allowed_to_retrieve_managed_password = [
+    adlc_group.operators.sid,
+  ]
+
+  depends_on = [adlc_kds_root_key.showcase]
+}
+
+# Full gMSA: every settable property populated, with computer accounts and a group as the
+# principals allowed to retrieve the managed password. This is the case that exercises the
+# msDS-SupportedEncryptionTypes read path.
+resource "adlc_gmsa" "full" {
+  name             = "adlc-svc-full"
+  sam_account_name = "adlc-svc-full"
+  dns_host_name    = "adlc-svc-full.${data.adlc_domain.current.dns_root}"
+  path             = adlc_organizational_unit.child["ServiceAccounts"].path
+
+  description  = "Showcase gMSA with every property set by Terraform."
+  display_name = "ADLC Showcase Service Account"
+  home_page    = "https://example.invalid/adlc-svc-full"
+
+  principals_allowed_to_retrieve_managed_password = concat(
+    [for c in adlc_computer.web : c.sid],
+    [adlc_computer.app01.sid, adlc_group.operators.sid],
+  )
+
+  principals_allowed_to_delegate_to_account = [
+    adlc_computer.app01.sid,
+  ]
+
+  service_principal_names = [
+    "HTTP/adlc-svc-full.${data.adlc_domain.current.dns_root}",
+    "HTTP/adlc-svc-full",
+  ]
+
+  kerberos_encryption_type       = ["AES128", "AES256"]
+  managed_password_interval_days = 30
+
+  enabled                            = true
+  trusted_for_delegation             = false
+  account_not_delegated              = true
+  compound_identity_supported        = true
+  protected_from_accidental_deletion = true
+
+  depends_on = [adlc_kds_root_key.showcase]
+}
+
+# Read managed objects back through the read-only data sources, proving they resolve by
+# identity exactly as an unmanaged object would. Each attribute reference defers the read
+# until after the object exists.
+data "adlc_group" "admins_lookup" {
+  identity = adlc_group.admins.distinguished_name
+}
+
+data "adlc_user" "showcase_lookup" {
+  identity = adlc_user.showcase.distinguished_name
+}
+
+data "adlc_organizational_unit" "root_lookup" {
+  path = adlc_organizational_unit.root.path
+}
+
+data "adlc_gpo" "domain_gpo4_lookup" {
+  identity = adlc_backup_gpo.domain_gpo4.target_name
+}
+
 output "domain" {
   value = {
     distinguished_name = data.adlc_domain.current.distinguished_name
@@ -395,6 +516,51 @@ output "backup_gpos" {
 output "json_gpos" {
   value = {
     for key, gpo in adlc_json_gpo.imports : key => { id = gpo.id, dn = gpo.distinguished_name }
+  }
+}
+
+output "kds_root_key" {
+  value = {
+    id      = adlc_kds_root_key.showcase.id
+    key_id  = adlc_kds_root_key.showcase.key_id
+    created = adlc_kds_root_key.showcase.created
+  }
+}
+
+output "computers" {
+  value = merge(
+    { for key, c in adlc_computer.web : key => { dn = c.distinguished_name, sid = c.sid } },
+    { app01 = { dn = adlc_computer.app01.distinguished_name, sid = adlc_computer.app01.sid } },
+  )
+}
+
+output "computer_lookup" {
+  value = {
+    dn               = data.adlc_computer.app01.distinguished_name
+    sid              = data.adlc_computer.app01.sid
+    sam_account_name = data.adlc_computer.app01.sam_account_name
+    enabled          = data.adlc_computer.app01.enabled
+  }
+}
+
+output "gmsas" {
+  value = {
+    minimal = { dn = adlc_gmsa.minimal.distinguished_name, sid = adlc_gmsa.minimal.sid }
+    full = {
+      dn                    = adlc_gmsa.full.distinguished_name
+      sid                   = adlc_gmsa.full.sid
+      retrieve_password_dns = adlc_gmsa.full.principals_allowed_to_retrieve_managed_password_dns
+    }
+  }
+}
+
+output "data_source_lookups" {
+  value = {
+    group_admins_sid       = data.adlc_group.admins_lookup.sid
+    user_showcase_sid      = data.adlc_user.showcase_lookup.sid
+    ou_root_dn             = data.adlc_organizational_unit.root_lookup.distinguished_name
+    gpo_domain_gpo4_guid   = data.adlc_gpo.domain_gpo4_lookup.guid
+    gpo_domain_gpo4_status = data.adlc_gpo.domain_gpo4_lookup.status
   }
 }
 

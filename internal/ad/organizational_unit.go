@@ -8,19 +8,21 @@ import (
 )
 
 const (
-	organizationalUnitCommon = "organizational_unit_common.ps1"
-	organizationalUnitEnsure = "organizational_unit_ensure.ps1"
-	organizationalUnitRead   = "organizational_unit_read.ps1"
-	organizationalUnitUpdate = "organizational_unit_update.ps1"
-	organizationalUnitDelete = "organizational_unit_delete.ps1"
+	organizationalUnitCommon   = "organizational_unit_common.ps1"
+	organizationalUnitEnsure   = "organizational_unit_ensure.ps1"
+	organizationalUnitRead     = "organizational_unit_read.ps1"
+	organizationalUnitUpdate   = "organizational_unit_update.ps1"
+	organizationalUnitDelete   = "organizational_unit_delete.ps1"
+	organizationalUnitDataRead = "organizational_unit_data_read.ps1"
 )
 
 type OrganizationalUnit struct {
-	Path              string  `json:"path"`
-	Description       *string `json:"description"`
-	DistinguishedName string  `json:"distinguished_name"`
-	Name              string  `json:"name"`
-	Exists            bool    `json:"exists"`
+	Path                            string  `json:"path"`
+	Description                     *string `json:"description"`
+	DistinguishedName               string  `json:"distinguished_name"`
+	Name                            string  `json:"name"`
+	ProtectedFromAccidentalDeletion bool    `json:"protected_from_accidental_deletion"`
+	Exists                          bool    `json:"exists"`
 	// Distinguished names of ancestor OUs this resource created because they did not exist.
 	// Populated by the ensure operation only; removed on delete while empty.
 	CreatedOrganizationalUnits []string `json:"created_organizational_units"`
@@ -47,6 +49,25 @@ func ReadOrganizationalUnit(ctx context.Context, c *client.Client, distinguished
 	script, err := buildScript(c, map[string]any{
 		"distinguished_name": distinguishedName,
 	}, commonScript, organizationalUnitCommon, organizationalUnitRead)
+	if err != nil {
+		return nil, err
+	}
+
+	var result OrganizationalUnit
+	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// ReadOrganizationalUnitByPath looks up an existing organizational unit by a slash-delimited
+// path relative to the domain root, a relative distinguished name, or a full distinguished
+// name. It errors when no matching OU exists.
+func ReadOrganizationalUnitByPath(ctx context.Context, c *client.Client, path string) (*OrganizationalUnit, error) {
+	script, err := buildScript(c, map[string]any{
+		"path": NormalizePath(path),
+	}, commonScript, organizationalUnitCommon, organizationalUnitDataRead)
 	if err != nil {
 		return nil, err
 	}

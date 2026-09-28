@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	userCommon = "user_common.ps1"
-	userEnsure = "user_ensure.ps1"
-	userRead   = "user_read.ps1"
-	userUpdate = "user_update.ps1"
-	userDelete = "user_delete.ps1"
+	userCommon   = "user_common.ps1"
+	userEnsure   = "user_ensure.ps1"
+	userRead     = "user_read.ps1"
+	userUpdate   = "user_update.ps1"
+	userDelete   = "user_delete.ps1"
+	userDataRead = "user_data_read.ps1"
 )
 
 type User struct {
@@ -113,6 +114,25 @@ type UserInput struct {
 	SmartCardLogonRequired          bool
 	TrustedForDelegation            bool
 	ProtectedFromAccidentalDeletion bool
+}
+
+// ReadUserByIdentity looks up an existing user by any AD identity (distinguished name,
+// objectGUID, SID, DOMAIN\name, sAMAccountName or userPrincipalName). It errors when no
+// matching user exists.
+func ReadUserByIdentity(ctx context.Context, c *client.Client, identity string) (*User, error) {
+	script, err := buildScript(c, map[string]any{
+		"identity": strings.TrimSpace(identity),
+	}, commonScript, userCommon, userDataRead)
+	if err != nil {
+		return nil, err
+	}
+
+	var result User
+	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 func (i UserInput) payload() map[string]any {

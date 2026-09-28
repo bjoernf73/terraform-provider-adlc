@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	computerCommon = "computer_common.ps1"
-	computerEnsure = "computer_ensure.ps1"
-	computerRead   = "computer_read.ps1"
-	computerUpdate = "computer_update.ps1"
-	computerDelete = "computer_delete.ps1"
+	computerCommon   = "computer_common.ps1"
+	computerEnsure   = "computer_ensure.ps1"
+	computerRead     = "computer_read.ps1"
+	computerUpdate   = "computer_update.ps1"
+	computerDelete   = "computer_delete.ps1"
+	computerDataRead = "computer_data_read.ps1"
 )
 
 type Computer struct {
@@ -128,6 +129,25 @@ func UpdateComputer(ctx context.Context, c *client.Client, guid string, input Co
 	payload["guid"] = guid
 
 	script, err := buildScript(c, payload, commonScript, computerCommon, computerUpdate)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Computer
+	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// ReadComputerByIdentity looks up an existing computer account by any AD identity
+// (distinguished name, objectGUID, SID, DOMAIN\name or sAMAccountName). It errors when
+// no matching account exists; the data source treats a missing computer as a hard failure.
+func ReadComputerByIdentity(ctx context.Context, c *client.Client, identity string) (*Computer, error) {
+	script, err := buildScript(c, map[string]any{
+		"identity": strings.TrimSpace(identity),
+	}, commonScript, computerCommon, computerDataRead)
 	if err != nil {
 		return nil, err
 	}

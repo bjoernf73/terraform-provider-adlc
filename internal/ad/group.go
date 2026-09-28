@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	groupCommon = "group_common.ps1"
-	groupEnsure = "group_ensure.ps1"
-	groupRead   = "group_read.ps1"
-	groupUpdate = "group_update.ps1"
-	groupDelete = "group_delete.ps1"
+	groupCommon   = "group_common.ps1"
+	groupEnsure   = "group_ensure.ps1"
+	groupRead     = "group_read.ps1"
+	groupUpdate   = "group_update.ps1"
+	groupDelete   = "group_delete.ps1"
+	groupDataRead = "group_data_read.ps1"
 )
 
 type Group struct {
@@ -75,6 +76,24 @@ func (i GroupInput) payload() map[string]any {
 
 func EnsureGroup(ctx context.Context, c *client.Client, input GroupInput) (*Group, error) {
 	script, err := buildScript(c, input.payload(), commonScript, groupCommon, groupEnsure)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Group
+	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// ReadGroupByIdentity looks up an existing group by any AD identity (distinguished name,
+// objectGUID, SID, DOMAIN\name or sAMAccountName). It errors when no matching group exists.
+func ReadGroupByIdentity(ctx context.Context, c *client.Client, identity string) (*Group, error) {
+	script, err := buildScript(c, map[string]any{
+		"identity": strings.TrimSpace(identity),
+	}, commonScript, groupCommon, groupDataRead)
 	if err != nil {
 		return nil, err
 	}

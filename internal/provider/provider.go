@@ -190,6 +190,11 @@ func (p *adlcProvider) Resources(_ context.Context) []func() resource.Resource {
 func (p *adlcProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewDomainDataSource,
+		NewComputerDataSource,
+		NewGroupDataSource,
+		NewUserDataSource,
+		NewOrganizationalUnitDataSource,
+		NewGPODataSource,
 		NewJsonGPOExportDataSource,
 	}
 }
