@@ -19,6 +19,7 @@ or **SSH**.
 | `adlc_user` | User accounts. Passwords are not managed here. |
 | `adlc_user_password` | Sets a user's initial password, generated or supplied |
 | `adlc_gmsa` | Group managed service accounts |
+| `adlc_computer` | Computer accounts, for pre-staging or reconciling machine objects |
 | `adlc_kds_root_key` | Ensures a forest KDS root key exists (the gMSA prerequisite) |
 | `adlc_access_rule` | A single access control entry (ACE) on any directory object |
 | `adlc_backup_gpo` | Imports a `Backup-GPO` folder into a GPO |

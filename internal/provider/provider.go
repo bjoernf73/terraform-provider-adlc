@@ -171,6 +171,7 @@ func (p *adlcProvider) Resources(_ context.Context) []func() resource.Resource {
 		NewUserResource,
 		NewUserPasswordResource,
 		NewGMSAResource,
+		NewComputerResource,
 		NewKDSRootKeyResource,
 		NewBackupGPOResource,
 		NewJsonGPOResource,

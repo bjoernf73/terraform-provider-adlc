@@ -29,6 +29,38 @@ function Get-OptionalString($Value) {
     return [string]$Value
 }
 
+# A machine-account sAMAccountName always ends with '$'. Users may configure the account name
+# with or without it; strip a single trailing '$' so both spellings resolve to the same account.
+function Get-StrippedSam([string]$Value) {
+    $trimmed = ([string]$Value).Trim()
+    if ($trimmed.EndsWith('$')) {
+        return $trimmed.Substring(0, $trimmed.Length - 1)
+    }
+
+    return $trimmed
+}
+
+# msDS-SupportedEncryptionTypes is a bit flag. Map it to the token set the AD account cmdlets
+# accept so state carries a stable, human-readable value.
+function Convert-EncryptionTypesToTokens($Value) {
+    $bits = 0
+    if ($null -ne $Value) {
+        $bits = [int]$Value
+    }
+
+    if ($bits -eq 0) {
+        return , @('None')
+    }
+
+    $tokens = New-Object System.Collections.Generic.List[string]
+    if ($bits -band 0x3) { $tokens.Add('DES') }   # DES-CBC-CRC (0x1) or DES-CBC-MD5 (0x2)
+    if ($bits -band 0x4) { $tokens.Add('RC4') }
+    if ($bits -band 0x8) { $tokens.Add('AES128') }
+    if ($bits -band 0x10) { $tokens.Add('AES256') }
+
+    return , @($tokens)
+}
+
 # Accepts a slash-delimited OU path relative to the domain root, a distinguished name
 # relative to the domain root, or a full distinguished name. Slash segments default to
 # OU= but may carry their own RDN prefix. Slash segments are always OUs; a segment that

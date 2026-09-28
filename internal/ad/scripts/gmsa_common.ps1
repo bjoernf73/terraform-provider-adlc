@@ -29,35 +29,7 @@ function Get-GmsaOrNull([string]$Identity) {
 
 # A gMSA sAMAccountName always ends with '$'. Users may configure the account name with or
 # without it; strip a single trailing '$' so both spellings resolve to the same account.
-function Get-StrippedSam([string]$Value) {
-    $trimmed = ([string]$Value).Trim()
-    if ($trimmed.EndsWith('$')) {
-        return $trimmed.Substring(0, $trimmed.Length - 1)
-    }
-
-    return $trimmed
-}
-
-# msDS-SupportedEncryptionTypes is a bit flag. Map it to the token set Set-ADServiceAccount
-# accepts so state carries a stable, human-readable value.
-function Convert-EncryptionTypesToTokens($Value) {
-    $bits = 0
-    if ($null -ne $Value) {
-        $bits = [int]$Value
-    }
-
-    if ($bits -eq 0) {
-        return , @('None')
-    }
-
-    $tokens = New-Object System.Collections.Generic.List[string]
-    if ($bits -band 0x3) { $tokens.Add('DES') }   # DES-CBC-CRC (0x1) or DES-CBC-MD5 (0x2)
-    if ($bits -band 0x4) { $tokens.Add('RC4') }
-    if ($bits -band 0x8) { $tokens.Add('AES128') }
-    if ($bits -band 0x10) { $tokens.Add('AES256') }
-
-    return , @($tokens)
-}
+# Get-StrippedSam and Convert-EncryptionTypesToTokens live in common.ps1.
 
 # Resolves an array of principal identities to their distinguished names, preserving order
 # and dropping duplicates.
@@ -168,7 +140,11 @@ function Set-GmsaMultiValued([string]$DistinguishedName) {
         Set-ADServiceAccount -Identity $DistinguishedName -ServicePrincipalNames @{ Replace = $spns } @serverParams -ErrorAction Stop
     }
 
-    $retrieve = @(Resolve-PrincipalDNs $payload.principals_allowed_to_retrieve_managed_password)
+    # Resolve-PrincipalDNs returns a single-element wrapper (`,@(...)`) so the caller receives
+    # the list intact; assign first to unroll that wrapper, then normalise to an array. Wrapping
+    # the call directly in @() would keep the inner array nested and fail the ADPrincipal bind.
+    $retrieve = Resolve-PrincipalDNs $payload.principals_allowed_to_retrieve_managed_password
+    $retrieve = @($retrieve)
     if ($retrieve.Count -eq 0) {
         Set-ADServiceAccount -Identity $DistinguishedName -PrincipalsAllowedToRetrieveManagedPassword $null @serverParams -ErrorAction Stop
     }
@@ -176,7 +152,8 @@ function Set-GmsaMultiValued([string]$DistinguishedName) {
         Set-ADServiceAccount -Identity $DistinguishedName -PrincipalsAllowedToRetrieveManagedPassword $retrieve @serverParams -ErrorAction Stop
     }
 
-    $delegate = @(Resolve-PrincipalDNs $payload.principals_allowed_to_delegate_to_account)
+    $delegate = Resolve-PrincipalDNs $payload.principals_allowed_to_delegate_to_account
+    $delegate = @($delegate)
     if ($delegate.Count -eq 0) {
         Set-ADServiceAccount -Identity $DistinguishedName -PrincipalsAllowedToDelegateToAccount $null @serverParams -ErrorAction Stop
     }
