@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 )
@@ -42,6 +44,7 @@ func EncodeScript(script string) (string, error) {
 }
 
 const stdinBootstrap = `$ErrorActionPreference='Stop';` +
+	`if($null -ne $PSStyle){$PSStyle.OutputRendering='PlainText'};` +
 	`$encoded=[Console]::In.ReadToEnd();` +
 	`$bytes=[System.Convert]::FromBase64String($encoded.Trim());` +
 	`$stream=New-Object System.IO.MemoryStream(,$bytes);` +
@@ -94,6 +97,31 @@ func DecodeCLIXML(input string) string {
 	}
 
 	joined := strings.Join(parts, "")
-	replacer := strings.NewReplacer("_x000D_", "", "_x000A_", "")
-	return strings.TrimSpace(replacer.Replace(joined))
+	return cleanConsoleText(joined)
+}
+
+// clixmlEscape matches CLIXML character-reference escapes such as _x001B_ (ESC) and _x000A_
+// (LF), which PowerShell emits for control characters when serializing the error stream.
+var clixmlEscape = regexp.MustCompile(`_x([0-9A-Fa-f]{4})_`)
+
+// ansiEscape matches ANSI/VT control sequences (colour codes, cursor moves) that PowerShell 7
+// bakes into error records for terminal rendering.
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+
+// cleanConsoleText turns CLIXML/ANSI-laden remote output into plain, readable text: it decodes
+// the _xNNNN_ character escapes, then strips the ANSI colour sequences that decoding reveals.
+func cleanConsoleText(input string) string {
+	decoded := clixmlEscape.ReplaceAllStringFunc(input, func(match string) string {
+		code, err := strconv.ParseInt(match[2:6], 16, 32)
+		if err != nil {
+			return match
+		}
+		if code == '\r' {
+			return ""
+		}
+		return string(rune(code))
+	})
+
+	stripped := ansiEscape.ReplaceAllString(decoded, "")
+	return strings.TrimSpace(stripped)
 }

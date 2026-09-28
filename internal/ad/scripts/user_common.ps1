@@ -173,11 +173,3 @@ function Sync-UserProtection([string]$DistinguishedName, [bool]$CurrentValue) {
         Set-ADObject -Identity $DistinguishedName -ProtectedFromAccidentalDeletion $desired @serverParams -ErrorAction Stop
     }
 }
-
-function Get-OptionalString($Value) {
-    if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) {
-        return $null
-    }
-
-    return [string]$Value
-}

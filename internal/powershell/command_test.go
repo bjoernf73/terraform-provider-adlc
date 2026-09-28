@@ -77,3 +77,22 @@ func TestBootstrapReadsStdin(t *testing.T) {
 		t.Fatalf("bootstrap does not read stdin: %s", bootstrap)
 	}
 }
+
+func TestDecodeCLIXMLStripsEscapesAndAnsi(t *testing.T) {
+	input := `#< CLIXML
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><S S="Error">_x001B_[31;1mGet-OptionalString: _x001B_[0mThe term 'Get-OptionalString' is not recognized._x000D__x000A_</S></Objs>`
+
+	got := DecodeCLIXML(input)
+	want := "Get-OptionalString: The term 'Get-OptionalString' is not recognized."
+
+	if got != want {
+		t.Fatalf("DecodeCLIXML returned %q, want %q", got, want)
+	}
+}
+
+func TestDecodeCLIXMLPassesThroughPlainText(t *testing.T) {
+	input := "just a plain error message"
+	if got := DecodeCLIXML(input); got != input {
+		t.Fatalf("DecodeCLIXML altered plain text: %q", got)
+	}
+}

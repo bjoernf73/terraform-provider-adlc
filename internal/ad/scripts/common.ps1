@@ -21,6 +21,14 @@ function Get-DomainDN {
     return (Get-ADDomain @serverParams -ErrorAction Stop).DistinguishedName
 }
 
+function Get-OptionalString($Value) {
+    if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) {
+        return $null
+    }
+
+    return [string]$Value
+}
+
 # Accepts a slash-delimited OU path relative to the domain root, a distinguished name
 # relative to the domain root, or a full distinguished name. Slash segments default to
 # OU= but may carry their own RDN prefix. Slash segments are always OUs; a segment that
