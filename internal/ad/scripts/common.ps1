@@ -58,7 +58,7 @@ function Convert-EncryptionTypesToTokens($Value) {
     }
 
     if ($bits -eq 0) {
-        return , @('None')
+        return @('None')
     }
 
     $tokens = New-Object System.Collections.Generic.List[string]
@@ -67,7 +67,8 @@ function Convert-EncryptionTypesToTokens($Value) {
     if ($bits -band 0x8) { $tokens.Add('AES128') }
     if ($bits -band 0x10) { $tokens.Add('AES256') }
 
-    return , @($tokens)
+    # Return the bare tokens; every caller re-wraps with @() to normalize to a JSON array.
+    return $tokens.ToArray()
 }
 
 # Accepts a slash-delimited OU path relative to the domain root, a distinguished name
