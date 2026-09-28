@@ -77,15 +77,15 @@ unit:
   script:
     - cd test/e2e
     - terraform fmt -check -recursive
-    - terraform init -no-color
-    - terraform validate -no-color
-    - terraform apply -auto-approve -no-color
+    - terraform init 
+    - terraform validate 
+    - terraform apply -auto-approve 
     # Update path: change a reconcilable attribute and re-apply.
-    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" terraform apply -auto-approve -no-color
+    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" terraform apply -auto-approve 
     # Idempotency: a second plan must produce no changes (exit code 0).
-    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" terraform plan -detailed-exitcode -no-color
+    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" terraform plan -detailed-exitcode 
   after_script:
-    - cd test/e2e && terraform destroy -auto-approve -no-color || true
+    - cd test/e2e && terraform destroy -auto-approve  || true
 
 e2e:winrm:
   extends: .e2e_template
@@ -148,11 +148,11 @@ e2e:winrm-https:
   script:
     - cd test/showcase
     - terraform fmt -check -recursive
-    - terraform init -no-color
-    - terraform validate -no-color
-    - terraform apply -auto-approve -no-color
+    - terraform init 
+    - terraform validate 
+    - terraform apply -auto-approve 
     # Idempotency: re-applying the same configuration must produce no changes.
-    - terraform plan -detailed-exitcode -no-color
+    - terraform plan -detailed-exitcode 
     - terraform output -json | tee "$CI_PROJECT_DIR/showcase-outputs.json"
   after_script:
     - echo "Showcase objects left in place for inspection."
