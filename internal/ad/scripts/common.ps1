@@ -45,7 +45,16 @@ function Get-StrippedSam([string]$Value) {
 function Convert-EncryptionTypesToTokens($Value) {
     $bits = 0
     if ($null -ne $Value) {
-        $bits = [int]$Value
+        # Reading msDS-SupportedEncryptionTypes yields an ADPropertyValueCollection; unwrap the
+        # first element before casting so both scalar and collection inputs convert cleanly.
+        $scalar = $Value
+        if ($scalar -is [System.Collections.IEnumerable] -and $scalar -isnot [string]) {
+            $scalar = @($scalar)[0]
+        }
+
+        if ($null -ne $scalar) {
+            $bits = [int]$scalar
+        }
     }
 
     if ($bits -eq 0) {
