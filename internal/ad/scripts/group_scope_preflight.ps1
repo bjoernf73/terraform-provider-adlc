@@ -16,15 +16,15 @@ function New-ScopeInfo([string]$Name, [string]$Scope, [string]$Relation) {
     return [pscustomobject]@{ name = $Name; scope = $Scope; relation = $Relation }
 }
 
-# Builds and emits the result in one object literal. Constructing it once (rather than
-# mutating a pre-made object) avoids a pscustomobject NoteProperty type-coercion error when
-# reassigning an array property.
+# Builds and emits the result in one object literal. $Blocking is cast with [object[]] rather
+# than wrapped in @(): applying @() to a List[object] inside the hashtable literal throws
+# "Argument types do not match" on PowerShell 7.6.
 function Write-PreflightResult([bool]$CanConvert, $Blocking) {
     [pscustomobject]@{
         can_convert = $CanConvert
         from_scope  = $current
         to_scope    = $desired
-        blocking    = @($Blocking)
+        blocking    = [object[]]$Blocking
     } | ConvertTo-Json -Compress -Depth 5
 }
 
