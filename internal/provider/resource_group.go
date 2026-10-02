@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,6 +24,7 @@ var (
 	_ resource.ResourceWithConfigure      = &groupResource{}
 	_ resource.ResourceWithImportState    = &groupResource{}
 	_ resource.ResourceWithValidateConfig = &groupResource{}
+	_ resource.ResourceWithModifyPlan     = &groupResource{}
 )
 
 func NewGroupResource() resource.Resource {
@@ -178,6 +180,81 @@ func (r *groupResource) ValidateConfig(ctx context.Context, req resource.Validat
 			"manager_can_update_membership requires managed_by to be set.",
 		)
 	}
+}
+
+// ModifyPlan pre-checks a group scope change at plan time: it asks the domain controller
+// whether the group's current nesting allows the conversion (stepping through Universal when
+// required) and fails the plan with a named error if a step is blocked. The apply still
+// enforces the rules, so this is an early, clearer failure rather than the only guard.
+func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Only updates matter: skip create (no prior state) and destroy (no plan).
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	if r.client == nil {
+		return
+	}
+
+	var state, plan groupResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if plan.Scope.IsUnknown() || state.Scope.IsUnknown() || plan.Scope.ValueString() == state.Scope.ValueString() {
+		return
+	}
+
+	preflight, err := ad.PreflightGroupScopeConversion(ctx, r.client, state.ID.ValueString(), state.Scope.ValueString(), plan.Scope.ValueString())
+	if err != nil {
+		// A preflight failure must not block planning on its own; apply still enforces the
+		// scope rules, so surface the problem as a warning and continue.
+		resp.Diagnostics.AddAttributeWarning(
+			path.Root("scope"),
+			"Could not pre-check group scope conversion",
+			err.Error(),
+		)
+		return
+	}
+
+	if preflight.CanConvert {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeError(
+		path.Root("scope"),
+		"Group scope conversion blocked by nesting",
+		groupScopeConversionError(preflight),
+	)
+}
+
+func groupScopeConversionError(p *ad.GroupScopePreflight) string {
+	var memberships, members []string
+	for _, b := range p.Blocking {
+		if b.Relation == "memberOf" {
+			memberships = append(memberships, fmt.Sprintf("%s (%s)", b.Name, b.Scope))
+		} else {
+			members = append(members, fmt.Sprintf("%s (%s)", b.Name, b.Scope))
+		}
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Active Directory cannot convert this group from %s to %s.", p.FromScope, p.ToScope)
+	if (p.FromScope == "Global" && p.ToScope == "DomainLocal") || (p.FromScope == "DomainLocal" && p.ToScope == "Global") {
+		sb.WriteString(" The conversion must pass through Universal, and a step is blocked by group nesting:")
+	} else {
+		sb.WriteString(" The conversion is blocked by group nesting:")
+	}
+	if len(memberships) > 0 {
+		fmt.Fprintf(&sb, "\n  - this group is a member of: %s", strings.Join(memberships, ", "))
+	}
+	if len(members) > 0 {
+		fmt.Fprintf(&sb, "\n  - this group contains the group member(s): %s", strings.Join(members, ", "))
+	}
+	sb.WriteString("\n\nRemove the offending membership (for example with adlc_group_member) or change those groups' " +
+		"scope, then apply again. See the group scope conversions guide for the full matrix.")
+	return sb.String()
 }
 
 func (r *groupResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

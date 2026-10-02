@@ -8,12 +8,13 @@ import (
 )
 
 const (
-	groupCommon   = "group_common.ps1"
-	groupEnsure   = "group_ensure.ps1"
-	groupRead     = "group_read.ps1"
-	groupUpdate   = "group_update.ps1"
-	groupDelete   = "group_delete.ps1"
-	groupDataRead = "group_data_read.ps1"
+	groupCommon         = "group_common.ps1"
+	groupEnsure         = "group_ensure.ps1"
+	groupRead           = "group_read.ps1"
+	groupUpdate         = "group_update.ps1"
+	groupDelete         = "group_delete.ps1"
+	groupDataRead       = "group_data_read.ps1"
+	groupScopePreflight = "group_scope_preflight.ps1"
 )
 
 type Group struct {
@@ -99,6 +100,46 @@ func ReadGroupByIdentity(ctx context.Context, c *client.Client, identity string)
 	}
 
 	var result Group
+	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GroupScopeBlocker is a related group whose nesting prevents a scope conversion step.
+// Relation is "memberOf" (a group this group belongs to) or "member" (a group this group
+// contains).
+type GroupScopeBlocker struct {
+	Name     string `json:"name"`
+	Scope    string `json:"scope"`
+	Relation string `json:"relation"`
+}
+
+// GroupScopePreflight reports whether a scope conversion is possible given the group's
+// current nesting, without attempting the change.
+type GroupScopePreflight struct {
+	CanConvert bool                `json:"can_convert"`
+	FromScope  string              `json:"from_scope"`
+	ToScope    string              `json:"to_scope"`
+	Blocking   []GroupScopeBlocker `json:"blocking"`
+}
+
+// PreflightGroupScopeConversion inspects the group's memberOf and member sets and evaluates
+// each step of the current -> desired scope conversion (stepping through Universal where AD
+// requires it) against AD's nesting rules. It is best-effort: a clean result does not
+// guarantee the change succeeds, and the apply still enforces the rules.
+func PreflightGroupScopeConversion(ctx context.Context, c *client.Client, guid, currentScope, desiredScope string) (*GroupScopePreflight, error) {
+	script, err := buildScript(c, map[string]any{
+		"guid":          guid,
+		"current_scope": currentScope,
+		"desired_scope": desiredScope,
+	}, commonScript, groupCommon, groupScopePreflight)
+	if err != nil {
+		return nil, err
+	}
+
+	var result GroupScopePreflight
 	if err := c.RunPowerShellJSON(ctx, script, &result); err != nil {
 		return nil, err
 	}

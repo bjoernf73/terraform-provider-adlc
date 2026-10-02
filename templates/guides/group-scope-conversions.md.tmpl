@@ -79,18 +79,23 @@ Because `Global ⇄ DomainLocal` goes through `Universal`, **both** the relevant
 for example `Global → DomainLocal` must first satisfy the `Global → Universal` rule (no
 `Global` parent group) and then the `Universal → DomainLocal` step.
 
-When a step violates one of these rules, Active Directory rejects it and the provider surfaces
-the underlying error unchanged, for example:
+When a step violates one of these rules, Active Directory rejects it. The provider
+**pre-checks** a scope change at plan time: before any change is attempted it reads the
+group's `memberOf` and `member` sets, evaluates every step of the conversion, and fails the
+plan with an error naming the specific groups that block it, for example:
 
 ```
-The requested operation did not satisfy one or more constraints associated with the class
-of the object.
+Group scope conversion blocked by nesting: Active Directory cannot convert this group from
+Global to DomainLocal. The conversion must pass through Universal, and a step is blocked by
+group nesting:
+  - this group is a member of: Corp Admins (Global)
 ```
 
-This provider does not yet pre-check membership or parent-group nesting before attempting a
-scope change; it relies on Active Directory to enforce the rules. If a conversion fails for a
-nesting reason, resolve the offending membership — remove the incompatible member or leave the
-incompatible parent group — and apply again.
+The preflight is best-effort and uses Active Directory's documented rules; the apply still
+enforces them, so a conversion that slips past the preflight is still rejected by the
+directory. If a conversion is blocked, resolve the offending membership — remove the
+incompatible member or leave the incompatible parent group (for example with
+`adlc_group_member`) — and plan again.
 
 ## Related
 
