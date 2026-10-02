@@ -244,6 +244,18 @@ resource "adlc_json_gpo" "imports" {
   ]
 }
 
+# Links two GPOs onto the Servers OU. Authoritative for that OU's links, so it exercises the
+# create path (New-GPLink) for both, precedence order (domain_gpo1 first), and an enforced
+# link. The OU holds no other links, so re-applies stay idempotent.
+resource "adlc_gpo_links" "servers" {
+  target = adlc_organizational_unit.child["Servers"].path
+
+  links = [
+    { gpo = adlc_backup_gpo.domain_gpo1.id },
+    { gpo = adlc_backup_gpo.domain_gpo4.id, enforced = true },
+  ]
+}
+
 # Nested membership.
 resource "adlc_group_member" "operators_in_admins" {
   group  = adlc_group.admins.id
@@ -516,6 +528,13 @@ output "backup_gpos" {
 output "json_gpos" {
   value = {
     for key, gpo in adlc_json_gpo.imports : key => { id = gpo.id, dn = gpo.distinguished_name }
+  }
+}
+
+output "gpo_links" {
+  value = {
+    servers_target_dn = adlc_gpo_links.servers.target_dn
+    servers_links     = adlc_gpo_links.servers.links
   }
 }
 

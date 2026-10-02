@@ -39,6 +39,7 @@ type adlcProviderModel struct {
 	Password            types.String `tfsdk:"password"`
 	Insecure            types.Bool   `tfsdk:"insecure"`
 	PowerShellPath      types.String `tfsdk:"powershell_path"`
+	GPOPowerShellPath   types.String `tfsdk:"gpo_powershell_path"`
 	DomainController    types.String `tfsdk:"domain_controller"`
 	TimeoutSeconds      types.Int64  `tfsdk:"timeout_seconds"`
 	WinRMUseTLS         types.Bool   `tfsdk:"winrm_use_tls"`
@@ -89,6 +90,15 @@ func (p *adlcProvider) Schema(_ context.Context, _ frameworkprovider.SchemaReque
 			"powershell_path": schema.StringAttribute{
 				Optional:            true,
 				MarkdownDescription: "PowerShell 7 executable path on the remote Windows host. Defaults to `pwsh`.",
+			},
+			"gpo_powershell_path": schema.StringAttribute{
+				Optional: true,
+				MarkdownDescription: "PowerShell executable used only for Group Policy operations (`adlc_backup_gpo`, `adlc_json_gpo`, " +
+					"`adlc_gpo_links`, `adlc_gpo_permission`, `adlc_gpo_security_filter`, `adlc_gpo_wmi_filter` and the `adlc_gpo` " +
+					"data source). The `GroupPolicy` module is not native to PowerShell 7; under `pwsh` it loads through the Windows " +
+					"PowerShell Compatibility layer, which prints warnings and returns deserialized objects. These operations therefore " +
+					"default to Windows PowerShell (`powershell.exe`), where the module is native. Set this to `pwsh` to force the " +
+					"compatibility layer instead. Defaults to `powershell.exe`.",
 			},
 			"domain_controller": schema.StringAttribute{
 				Optional:            true,
@@ -209,6 +219,7 @@ func expandProviderConfig(data adlcProviderModel) (config.Config, diag.Diagnosti
 		Password:            data.Password.ValueString(),
 		Insecure:            valueOrDefaultBool(data.Insecure, false),
 		PowerShellPath:      valueOrDefaultString(data.PowerShellPath, "pwsh"),
+		GPOPowerShellPath:   valueOrDefaultString(data.GPOPowerShellPath, "powershell.exe"),
 		DomainController:    strings.TrimSpace(data.DomainController.ValueString()),
 		Timeout:             time.Duration(valueOrDefaultInt64(data.TimeoutSeconds, 30)) * time.Second,
 		WinRMUseTLS:         valueOrDefaultBool(data.WinRMUseTLS, false),

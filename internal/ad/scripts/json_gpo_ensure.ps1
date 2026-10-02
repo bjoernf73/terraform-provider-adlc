@@ -38,20 +38,26 @@ if ($imported.PolicySettings.GPOComments) {
     $imported.PolicySettings.GPOComments | Out-File -FilePath "$sysvolRoot\GPO.cmt" -Encoding unicode -Force
 }
 
+# versionNumber packs two counters: the low 16 bits are the computer version, the high 16
+# bits the user version. Track which side had any content written, so the matching half is
+# bumped below - a user-only GPO must raise the user version, not leave it at 0.
+$machineChanged = $false
+$userChanged = $false
+
 # Administrative template comments
 if ($imported.PolicySettings.MachineComments) {
     New-Item -Path "$sysvolRoot\Machine" -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
     $imported.PolicySettings.MachineComments | Out-File -FilePath "$sysvolRoot\Machine\comment.cmtx" -Encoding utf8 -Force
+    $machineChanged = $true
 }
 if ($imported.PolicySettings.UserComments) {
     New-Item -Path "$sysvolRoot\User" -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
     $imported.PolicySettings.UserComments | Out-File -FilePath "$sysvolRoot\User\comment.cmtx" -Encoding utf8 -Force
+    $userChanged = $true
 }
 
-# Registry settings. $incrementBy tracks how much to bump versionNumber by below: +1 if
-# any machine setting was written, +65536 if any user setting was written.
+# Registry settings.
 $allowedRegistryValueTypes = @('REG_SZ', 'REG_MULTI_SZ', 'REG_DWORD', 'REG_QWORD', 'REG_NONE')
-[uint32]$incrementBy = 0
 if ($imported.PolicySettings.RegistrySettings) {
     $byTarget = @{ Machine = @(); User = @() }
 
@@ -96,7 +102,7 @@ if ($imported.PolicySettings.RegistrySettings) {
         New-GPRegistryPolicyFile -Path $polPath
         Add-RegistryPolicies -Path $polPath -RegistryPolicies $byTarget[$target]
 
-        if ($target -eq 'Machine') { $incrementBy += 1 } else { $incrementBy += 65536 }
+        if ($target -eq 'Machine') { $machineChanged = $true } else { $userChanged = $true }
     }
 }
 
@@ -110,6 +116,7 @@ if ($imported.PolicySettings.AuditSettings) {
         ConvertTo-Csv -NoTypeInformation -Delimiter ',' |
         ForEach-Object { $_.Replace('"', '') }
     $csv | Out-File -FilePath "$auditDir\audit.csv" -Encoding utf8 -Force
+    $machineChanged = $true
 }
 
 # Security template (GptTmpl.inf); tokens can appear mid-line, embedded in SDDL strings.
@@ -119,12 +126,14 @@ if ($imported.PolicySettings.SecurityTemplate) {
 
     $lines = @($imported.PolicySettings.SecurityTemplate | ForEach-Object { Resolve-JsonGPOToken ([string]$_) })
     $lines | Out-File -FilePath "$secDir\GptTmpl.inf" -Encoding default -Force
+    $machineChanged = $true
 }
 
 # Logon/logoff/startup/shutdown scripts
 if ($imported.PolicySettings.Scripts) {
     foreach ($script in $imported.PolicySettings.Scripts) {
         $target = [string]$script.Target
+        if ($target -eq 'Machine') { $machineChanged = $true } else { $userChanged = $true }
         $scriptsDir = "$sysvolRoot\$target\Scripts"
         New-Item -Path $scriptsDir -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
 
@@ -146,6 +155,7 @@ if ($imported.PolicySettings.Scripts) {
 # Group Policy Preferences
 if ($imported.PolicySettings.GroupPolicyPreferences) {
     foreach ($gpp in $imported.PolicySettings.GroupPolicyPreferences) {
+        if ([string]$gpp.Target -eq 'Machine') { $machineChanged = $true } else { $userChanged = $true }
         $gppDir = "$sysvolRoot\$($gpp.Target)\Preferences\$($gpp.Type)"
         New-Item -Path $gppDir -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
 
@@ -174,6 +184,10 @@ if ((-not $computerEnabled) -and (-not $userEnabled)) { $flags = 3 }
 Set-ADObject -Identity $gpcObject.DistinguishedName -Replace @{ flags = $flags } @serverParams -ErrorAction Stop
 
 # Bump versionNumber in both AD and SYSVOL's GPT.INI, so GPMC and gpupdate see the change.
+# +1 raises the computer version (low word), +65536 the user version (high word).
+[uint32]$incrementBy = 0
+if ($machineChanged) { $incrementBy += 1 }
+if ($userChanged) { $incrementBy += 65536 }
 if ($incrementBy -gt 0) {
     $current = Get-ADObject -Identity $gpcObject.DistinguishedName -Properties versionNumber @serverParams -ErrorAction Stop
     $newVersion = [uint32]$current.versionNumber + $incrementBy

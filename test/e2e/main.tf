@@ -161,6 +161,23 @@ resource "adlc_backup_gpo" "domain_gpo3" {
   target_name = "Domain - GPO3"
 }
 
+# Links the freshly imported GPO onto the smoke OU, exercising the create path (New-GPLink).
+# ssh-gated to match the GPO imports it references.
+resource "adlc_gpo_links" "smoke" {
+  count = var.transport == "ssh" ? 1 : 0
+
+  target = adlc_organizational_unit.smoke.path
+  links = [
+    {
+      gpo = adlc_backup_gpo.domain_gpo3[0].id
+    },
+  ]
+}
+
+output "gpo_links_id" {
+  value = try(adlc_gpo_links.smoke[0].id, null)
+}
+
 output "backup_gpos" {
   value = {
     domain_gpo2 = try({ id = adlc_backup_gpo.domain_gpo2[0].id, dn = adlc_backup_gpo.domain_gpo2[0].distinguished_name }, null)

@@ -21,6 +21,20 @@ recreates the GPO.
 | Free-text substitution | Not supported | `replacements`, a plain string map |
 | Coverage | Everything `Import-GPO` supports | Registry settings, security template, audit settings, comments, scripts, Group Policy Preferences - not links, ACLs or WMI filters |
 
+### Which PowerShell runs Group Policy operations
+
+The `GroupPolicy` module is not native to PowerShell 7. Under `pwsh` it loads through the
+Windows PowerShell Compatibility layer, which prints warnings and returns *deserialized*
+objects, so nested properties can be lost. Every GPO operation (`adlc_backup_gpo`,
+`adlc_json_gpo`, `adlc_gpo_links`, `adlc_gpo_permission`, `adlc_gpo_security_filter`,
+`adlc_gpo_wmi_filter` and the `adlc_gpo` data source) therefore runs under Windows PowerShell
+(`powershell.exe`), where the module is native, while everything else keeps using `pwsh`.
+
+Override this with the provider's `gpo_powershell_path` setting - for example set it to `pwsh`
+to force the compatibility layer, or to a full path if `powershell.exe` is not on `PATH`. The
+host must have the `GroupPolicy` module (RSAT Group Policy Management) available to whichever
+executable runs these operations.
+
 GPO links and permissions are managed by separate resources either way:
 [`adlc_gpo_links`](../resources/gpo_links.md) manages where a GPO is linked;
 [`adlc_gpo_permission`](../resources/gpo_permission.md) manages a named Group Policy

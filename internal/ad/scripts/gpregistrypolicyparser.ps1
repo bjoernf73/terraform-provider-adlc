@@ -1,10 +1,29 @@
-# Group Policy Registry Policy (.pol) parser. Vendored from Microsoft's
-# GPRegistryPolicyParser module (ref/dry.module.ad/helpers/GPRegistryPolicyParser),
-# adapted to run embedded in a single script instead of as an installed module:
+# GPRegistryPolicyParser - Copyright (c) Microsoft Corporation. Licensed under the MIT License.
+# Source: https://github.com/PowerShell/GPRegistryPolicyParser (archived, read-only).
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+# and associated documentation files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+# BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# Group Policy Registry Policy (.pol) parser. Vendored from Microsoft's GPRegistryPolicyParser 
+# module adapted to run embedded in a single script instead of as an installed module:
+#
 #   - $LocalizedData is inlined; Import-LocalizedData needs a sibling .psd1 file on
 #     disk, which doesn't exist when this script arrives over stdin.
-#   - Add-Content -Encoding Byte was removed in PowerShell 6+; this provider always
-#     runs pwsh (7+), so byte writes use -AsByteStream directly, no version branch.
+#   - Byte I/O goes through [System.IO.File] and Add-FileByteContent rather than
+#     Add-Content -AsByteStream (pwsh 7+) or -Encoding Byte (Windows PowerShell only),
+#     so the parser runs under either edition. GPO scripts default to Windows PowerShell.
 #   - The two trailing Export-ModuleMember calls are dropped: valid only inside a
 #     real module, they throw when a script is just dot-run like this one.
 
@@ -21,6 +40,29 @@ $LocalizedData = @{
 
 $script:REGFILE_SIGNATURE = 0x67655250 # PRef
 $script:REGISTRY_FILE_VERSION = 0x00000001 # Incremented if Microsoft ever changes the file format.
+
+# Appends raw bytes to a file across PowerShell editions: Add-Content's -AsByteStream (pwsh 7+)
+# and -Encoding Byte (Windows PowerShell 5.1) are mutually exclusive, so neither is portable.
+Function Add-FileByteContent {
+    param(
+        [Parameter(Mandatory)]
+        [string]
+        $Path,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [byte[]]
+        $Bytes
+    )
+
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write)
+    try {
+        $stream.Write($Bytes, 0, $Bytes.Length)
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
 
 $script:DefaultEntries = @(
     "Software\Policies"
@@ -159,7 +201,7 @@ Function Read-PolFile {
     $index = 0
 
     [string] $policyContents = Get-Content $Path -Raw
-    [byte[]] $policyContentInBytes = Get-Content $Path -AsByteStream -Raw
+    [byte[]] $policyContentInBytes = [System.IO.File]::ReadAllBytes($Path)
 
     # 4 bytes are the signature PReg
     $signature = [System.Text.Encoding]::ASCII.GetString($policyContents[0..3])
@@ -434,7 +476,7 @@ Function Add-RegistryPolicies {
 
     foreach ($rp in $RegistryPolicies) {
         [Byte[]] $Entry = New-RegistrySettingsEntry -RegistryPolicy $rp
-        $Entry | Add-Content -Path $Path -AsByteStream
+        Add-FileByteContent -Path $Path -Bytes $Entry
     }
 }
 
@@ -477,8 +519,8 @@ Function New-GPRegistryPolicyFile {
 
     New-Item -Path $Path -Force -ErrorAction Stop | Out-Null
 
-    [System.BitConverter]::GetBytes($script:REGFILE_SIGNATURE) | Add-Content -Path $Path -AsByteStream
-    [System.BitConverter]::GetBytes($script:REGISTRY_FILE_VERSION) | Add-Content -Path $Path -AsByteStream
+    Add-FileByteContent -Path $Path -Bytes ([System.BitConverter]::GetBytes($script:REGFILE_SIGNATURE))
+    Add-FileByteContent -Path $Path -Bytes ([System.BitConverter]::GetBytes($script:REGISTRY_FILE_VERSION))
 }
 
 Function Get-RegKeyInfo {

@@ -280,3 +280,13 @@ the network.
 ### Future: Publishing to Terraform Registry
 
 The provider is currently not published to Terraform Registry. At some point, when it becomes stable, it may.
+
+## License
+
+Copyright (c) bjoernf73.
+
+This provider is licensed under the **Mozilla Public License 2.0** — see [LICENSE](LICENSE).
+
+It embeds third-party source code under its own license; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (currently Microsoft's MIT-licensed
+`GPRegistryPolicyParser`).
