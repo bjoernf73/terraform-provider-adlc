@@ -80,10 +80,11 @@ unit:
     - terraform init 
     - terraform validate 
     - terraform apply -auto-approve 
-    # Update path: change a reconcilable attribute and re-apply.
-    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" terraform apply -auto-approve 
+    # Update path: change a reconcilable attribute and convert the group's scope. Flipping
+    # Global -> DomainLocal exercises the two-step conversion through Universal.
+    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" TF_VAR_group_scope="DomainLocal" terraform apply -auto-approve 
     # Idempotency: a second plan must produce no changes (exit code 0).
-    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" terraform plan -detailed-exitcode 
+    - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" TF_VAR_group_scope="DomainLocal" terraform plan -detailed-exitcode 
   after_script:
     - cd test/e2e && terraform destroy -auto-approve  || true
 

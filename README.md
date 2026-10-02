@@ -39,6 +39,11 @@ or **SSH**.
 | Data source | Reads |
 | --- | --- |
 | `adlc_domain` | The connected domain: DN, DNS root, NetBIOS name, well-known containers |
+| `adlc_computer` | An existing computer account, by DN, GUID, SID, `DOMAIN\name` or `sAMAccountName` |
+| `adlc_group` | An existing group, by DN, GUID, SID, `DOMAIN\name` or `sAMAccountName` |
+| `adlc_user` | An existing user, by DN, GUID, SID, `DOMAIN\name`, `sAMAccountName` or UPN |
+| `adlc_organizational_unit` | An existing OU, by slash path or distinguished name |
+| `adlc_gpo` | An existing Group Policy Object, by display name or GUID |
 | `adlc_json_gpo_export` | A live GPO's SYSVOL content, as JSON |
 
 ## Documentation
@@ -48,6 +53,7 @@ Full documentation lives in [docs/](docs/):
 - [Provider configuration and authentication](docs/index.md)
 - [Paths and distinguished names](docs/guides/paths.md) — how object locations are resolved
 - [Access rules and delegation](docs/guides/access-rules.md) — all six ACE constructors
+- [Group scope conversions](docs/guides/group-scope-conversions.md) — Global, DomainLocal, Universal and the Universal hop
 - [Managing Group Policy Objects](docs/guides/gpos.md) — backup vs. JSON GPOs, migration, links, drift
 - [Managing SYSVOL files](docs/guides/sysvol-files.md) — NETLOGON scripts and Administrative Templates
 - [Managing Active Directory Sites](docs/guides/sites-and-subnets.md) — replication sites and subnet assignment

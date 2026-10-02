@@ -133,10 +133,13 @@ func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				},
 			},
 			"scope": schema.StringAttribute{
-				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString("Global"),
-				MarkdownDescription: "Group scope: `DomainLocal`, `Global` or `Universal`.",
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString("Global"),
+				MarkdownDescription: "Group scope: `DomainLocal`, `Global` or `Universal`. The scope is reconciled in place; " +
+					"Active Directory cannot convert `Global` directly to `DomainLocal` (or the reverse), so the provider " +
+					"steps through `Universal` automatically. A conversion can still be rejected by Active Directory's " +
+					"nesting rules — see the [group scope conversions guide](../guides/group-scope-conversions.md).",
 				Validators: []validator.String{
 					oneOf("DomainLocal", "Global", "Universal"),
 				},

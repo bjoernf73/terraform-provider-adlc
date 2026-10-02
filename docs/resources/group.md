@@ -67,7 +67,7 @@ resource "adlc_group" "legacy_readers" {
 - `manager_can_update_membership` (Boolean) Allow the `managed_by` principal to change the membership list, the **Manager can update membership list** checkbox in Active Directory Users and Computers. This is not a stored attribute: it adds an Allow access control entry granting `WriteProperty` on the `member` attribute. Requires `managed_by`.
 - `protected_from_accidental_deletion` (Boolean) Protect the group from accidental deletion. This is not a stored attribute: it adds Deny access control entries for `Everyone` on `Delete` and `DeleteTree`.
 - `sam_account_name` (String) Pre-Windows 2000 group name. Defaults to `name`. Maximum 20 characters.
-- `scope` (String) Group scope: `DomainLocal`, `Global` or `Universal`.
+- `scope` (String) Group scope: `DomainLocal`, `Global` or `Universal`. The scope is reconciled in place; Active Directory cannot convert `Global` directly to `DomainLocal` (or the reverse), so the provider steps through `Universal` automatically. A conversion can still be rejected by Active Directory's nesting rules — see the [group scope conversions guide](../guides/group-scope-conversions.md).
 
 ### Read-Only
 
@@ -86,3 +86,23 @@ The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/c
 # Groups are imported by objectGUID, which is stable across renames and moves.
 terraform import adlc_group.server_admins "9cb8219c-31ff-4a85-a7a3-9bcbb6a41d02"
 ```
+
+## Changing group scope
+
+Active Directory recognises three group scopes — `Global`, `DomainLocal` and `Universal` —
+and not every scope can convert directly to every other. The only pair that cannot convert
+directly is `Global` and `DomainLocal`: a conversion between them must pass through
+`Universal`.
+
+The provider reconciles `scope` **in place**, and performs the two-step
+`Global → Universal → DomainLocal` (or the reverse) hop automatically. Changing `scope` never
+replaces the group, so its `objectGUID`, SID, memberships and access control entries are all
+preserved.
+
+A scope change can still fail — Active Directory enforces nesting rules that depend on a
+group's current members and the groups it belongs to. For example, a `Global` group that is a
+member of another `Global` group cannot become `Universal`, and a `Universal` group that
+contains a `Universal` member cannot become `Global`. When that happens the underlying Active
+Directory error is surfaced unchanged. See the
+[group scope conversions guide](../guides/group-scope-conversions.md) for the full conversion
+matrix and the nesting constraints behind each step.

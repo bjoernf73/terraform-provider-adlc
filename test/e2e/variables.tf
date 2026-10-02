@@ -74,3 +74,9 @@ variable "group_name" {
   description = "Name of the group created by the smoke test."
   default     = "adlc-ci-group"
 }
+
+variable "group_scope" {
+  type        = string
+  description = "Scope of the smoke-test group. The pipeline flips this from Global to DomainLocal on the update apply to exercise the two-step scope conversion through Universal."
+  default     = "Global"
+}

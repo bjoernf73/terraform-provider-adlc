@@ -38,7 +38,7 @@ resource "adlc_group" "smoke" {
   info         = "Created by the terraform-provider-adlc pipeline."
   managed_by   = "Administrator"
   category     = "Security"
-  scope        = "Global"
+  scope        = var.group_scope
 }
 
 output "id" {

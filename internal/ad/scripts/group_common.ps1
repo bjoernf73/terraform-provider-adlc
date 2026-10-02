@@ -158,6 +158,32 @@ function Get-GroupByIdentity([string]$Identity) {
     return Get-ADGroup -Identity $Identity -Properties $properties @serverParams -ErrorAction Stop
 }
 
+# Returns the ordered list of scopes to pass through to reach $DesiredScope from
+# $CurrentScope. Active Directory allows Universal<->Global and Universal<->DomainLocal
+# directly, but not Global<->DomainLocal, which must hop through Universal.
+function Get-GroupScopePath([string]$CurrentScope, [string]$DesiredScope) {
+    if (($CurrentScope -eq 'Global' -and $DesiredScope -eq 'DomainLocal') -or
+        ($CurrentScope -eq 'DomainLocal' -and $DesiredScope -eq 'Global')) {
+        return @('Universal', $DesiredScope)
+    }
+
+    return @($DesiredScope)
+}
+
+# Converts a group's scope, stepping through Universal when AD forbids the direct change.
+# A step can still fail on nesting rules (for example converting away from Universal while
+# the group holds members of an incompatible scope); that error surfaces unchanged.
+function Set-GroupScope([string]$Identity, [string]$CurrentScope, [string]$DesiredScope) {
+    if ($CurrentScope -eq $DesiredScope) {
+        return
+    }
+
+    $serverParams = Get-ServerParams
+    foreach ($scope in (Get-GroupScopePath $CurrentScope $DesiredScope)) {
+        Set-ADGroup -Identity $Identity -GroupScope $scope @serverParams -ErrorAction Stop
+    }
+}
+
 # Reconciles everything that can change in place. Shared by ensure and update so the
 # two paths cannot drift apart.
 function Sync-GroupProperties($Group) {
@@ -172,11 +198,14 @@ function Sync-GroupProperties($Group) {
     if ([string]$Group.GroupCategory -ne [string]$payload.category) {
         $setParams['GroupCategory'] = [string]$payload.category
     }
-    if ([string]$Group.GroupScope -ne [string]$payload.scope) {
-        $setParams['GroupScope'] = [string]$payload.scope
-    }
     if ($setParams.Count -gt 0) {
         Set-ADGroup -Identity $identity @setParams @serverParams -ErrorAction Stop
+    }
+
+    # Scope changes are applied on their own because AD cannot convert Global directly to
+    # DomainLocal (or back); Set-GroupScope steps through Universal when required.
+    if ([string]$Group.GroupScope -ne [string]$payload.scope) {
+        Set-GroupScope $identity ([string]$Group.GroupScope) ([string]$payload.scope)
     }
 
     $replace = @{}
