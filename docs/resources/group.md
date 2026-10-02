@@ -102,7 +102,7 @@ preserved.
 A scope change can still fail — Active Directory enforces nesting rules that depend on a
 group's current members and the groups it belongs to. For example, a `Global` group that is a
 member of another `Global` group cannot become `Universal`, and a `Universal` group that
-contains a `Universal` member cannot become `Global`. When that happens the underlying Active
-Directory error is surfaced unchanged. See the
+contains a `Universal` member cannot become `Global`. The provider pre-checks this at plan
+time and fails the plan with an error naming the groups that block the conversion. See the
 [group scope conversions guide](../guides/group-scope-conversions.md) for the full conversion
 matrix and the nesting constraints behind each step.
