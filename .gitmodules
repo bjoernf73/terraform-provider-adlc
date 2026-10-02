@@ -1,6 +1,3 @@
 [submodule "ref/terraform-plugin-framework"]
 	path = ref/terraform-plugin-framework
 	url = git@github.com:hashicorp/terraform-plugin-framework.git
-[submodule "ref/terraform-provider-ad"]
-	path = ref/terraform-provider-ad
-	url = git@github.com:hashicorp/terraform-provider-ad.git
