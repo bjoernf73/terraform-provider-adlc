@@ -16,15 +16,20 @@ function New-ScopeInfo([string]$Name, [string]$Scope, [string]$Relation) {
     return [pscustomobject]@{ name = $Name; scope = $Scope; relation = $Relation }
 }
 
-$result = [pscustomobject]@{
-    can_convert = $true
-    from_scope  = $current
-    to_scope    = $desired
-    blocking    = @()
+# Builds and emits the result in one object literal. Constructing it once (rather than
+# mutating a pre-made object) avoids a pscustomobject NoteProperty type-coercion error when
+# reassigning an array property.
+function Write-PreflightResult([bool]$CanConvert, $Blocking) {
+    [pscustomobject]@{
+        can_convert = $CanConvert
+        from_scope  = $current
+        to_scope    = $desired
+        blocking    = @($Blocking)
+    } | ConvertTo-Json -Compress -Depth 5
 }
 
 if ($current -eq $desired) {
-    $result | ConvertTo-Json -Compress -Depth 5
+    Write-PreflightResult $true @()
     return
 }
 
@@ -35,7 +40,7 @@ try {
 catch {
     if (Test-IsIdentityNotFound $_) {
         # Nothing to evaluate; apply will handle a missing object.
-        $result | ConvertTo-Json -Compress -Depth 5
+        Write-PreflightResult $true @()
         return
     }
 
@@ -84,6 +89,4 @@ foreach ($to in (Get-GroupScopePath $current $desired)) {
     $from = $to
 }
 
-$result.blocking = @($blocking)
-$result.can_convert = ($blocking.Count -eq 0)
-$result | ConvertTo-Json -Compress -Depth 5
+Write-PreflightResult ($blocking.Count -eq 0) $blocking
