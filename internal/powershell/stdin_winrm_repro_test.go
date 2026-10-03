@@ -152,7 +152,6 @@ func TestSSHStdinRepro(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			command := buildBootstrapCommand(tc.shell, tc.bootstrap)
 			result, err := runner.Run(context.Background(), command, stdin)
@@ -185,7 +184,6 @@ func TestWinRMStdinRepro(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			command := buildBootstrapCommand(tc.shell, tc.bootstrap)
 			result, err := runner.Run(context.Background(), command, stdin)
@@ -211,7 +209,6 @@ func TestWinRMStdinLargeScript(t *testing.T) {
 	t.Logf("script bytes=%d gzip+base64 stdin bytes=%d", len(script), len(stdin))
 
 	for _, shell := range []string{"pwsh", "powershell.exe"} {
-		shell := shell
 		t.Run(shell, func(t *testing.T) {
 			command := buildBootstrapCommand(shell, stdinBootstrap)
 			result, err := runner.Run(context.Background(), command, stdin)
@@ -237,7 +234,6 @@ func TestWinRMGroupPolicyEdition(t *testing.T) {
 	}
 
 	for _, shell := range []string{"pwsh", "powershell.exe"} {
-		shell := shell
 		t.Run(shell, func(t *testing.T) {
 			command := buildBootstrapCommand(shell, stdinBootstrap)
 			result, err := runner.Run(context.Background(), command, stdin)
