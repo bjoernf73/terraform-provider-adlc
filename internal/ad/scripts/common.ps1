@@ -6,7 +6,8 @@ if ($null -ne $PSStyle) {
     $PSStyle.OutputRendering = 'PlainText'
 }
 
-Import-Module ActiveDirectory -ErrorAction Stop
+# The ActiveDirectory module is imported by buildScript (Go) only for operations that still need
+# it; operations migrated to the LDAP helpers below run without it. See moduleFreeOperations.
 
 function Get-ServerParams {
     $serverParams = @{}

@@ -15,6 +15,14 @@ var scripts embed.FS
 
 const commonScript = "common.ps1"
 
+// moduleFreeOperations lists operation sources (the body script name without .ps1) whose scripts
+// use only the LDAP helpers in common.ps1 and therefore do not need the ActiveDirectory module.
+// buildScript omits the ~600 ms module import for these; migrating an operation to LDAP means
+// adding it here.
+var moduleFreeOperations = map[string]bool{
+	"domain_read": true,
+}
+
 func script(name string) string {
 	content, err := scripts.ReadFile("scripts/" + name)
 	if err != nil {
@@ -39,7 +47,16 @@ func buildScript(c *client.Client, payload map[string]any, names ...string) (str
 		return "", fmt.Errorf("encoding script payload: %w", err)
 	}
 
+	body := names[len(names)-1]
+	source := strings.TrimSuffix(body, ".ps1")
+
 	var builder strings.Builder
+	// The ActiveDirectory module import costs ~600 ms per process, and the provider runs every
+	// operation in a fresh remote shell, so it is paid again on every read and write. Operations
+	// migrated to the LDAP helpers in common.ps1 skip it; every other operation still imports it.
+	if !moduleFreeOperations[source] {
+		builder.WriteString("Import-Module ActiveDirectory -ErrorAction Stop\n")
+	}
 	for _, name := range names[:len(names)-1] {
 		builder.WriteString(script(name))
 		builder.WriteString("\n")
@@ -52,8 +69,6 @@ func buildScript(c *client.Client, payload map[string]any, names ...string) (str
 	// 'terraform-provider-adlc' event log on the target host and re-thrown. Every operation
 	// also logs on success: mutating operations as a change (event 1000), read-only
 	// operations as a read (event 1002). Helpers live in common.ps1.
-	body := names[len(names)-1]
-	source := strings.TrimSuffix(body, ".ps1")
 	fmt.Fprintf(&builder, "$scriptSource = '%s'\ntry {\n", source)
 	builder.WriteString(script(body))
 	if isMutatingScript(source) {
