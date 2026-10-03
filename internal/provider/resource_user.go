@@ -276,7 +276,12 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, userState(plan, user))...)
+	updated := userState(plan, user)
+	// Enabling an account with no usable password is deferred to a password resource (see
+	// user_common.ps1 Set-UserEnabledState), so the account may still be disabled here. Honor
+	// the planned value to keep the applied state consistent with the plan.
+	updated.Enabled = plan.Enabled
+	resp.Diagnostics.Append(resp.State.Set(ctx, updated)...)
 }
 
 func (r *userResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

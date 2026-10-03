@@ -153,11 +153,31 @@ function Get-UserSetParams {
         ProfilePath             = (Get-OptionalString $payload.profile_path)
         AccountExpirationDate   = $accountExpirationDate
         Manager                 = $manager
-        Enabled                 = [bool]$payload.enabled
         PasswordNeverExpires    = [bool]$payload.password_never_expires
         CannotChangePassword    = [bool]$payload.cannot_change_password
         SmartcardLogonRequired  = [bool]$payload.smart_card_logon_required
         TrustedForDelegation    = [bool]$payload.trusted_for_delegation
+    }
+}
+
+# Reconciles the account's Enabled state. Enabling an account that has no usable password yet
+# fails the domain password policy; in that case leave it disabled and defer to a password
+# resource (adlc_user_password) or a later apply, exactly as creation force-disables. Any
+# other failure re-throws.
+function Set-UserEnabledState([string]$DistinguishedName, [bool]$Desired) {
+    $serverParams = Get-ServerParams
+    if (-not $Desired) {
+        Set-ADUser -Identity $DistinguishedName -Enabled $false @serverParams -ErrorAction Stop
+        return
+    }
+
+    try {
+        Set-ADUser -Identity $DistinguishedName -Enabled $true @serverParams -ErrorAction Stop
+    }
+    catch {
+        if ($_.Exception.Message -notmatch 'password does not meet') {
+            throw
+        }
     }
 }
 

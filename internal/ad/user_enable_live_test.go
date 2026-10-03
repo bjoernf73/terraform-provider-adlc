@@ -1,0 +1,102 @@
+package ad
+
+import (
+	"context"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/bjoernf73/terraform-provider-adlc/internal/client"
+	"github.com/bjoernf73/terraform-provider-adlc/internal/config"
+)
+
+func liveADClient(t *testing.T) *client.Client {
+	t.Helper()
+
+	host := os.Getenv("ADLC_HOST")
+	if host == "" {
+		t.Skip("ADLC_HOST not set")
+	}
+
+	port := 5985
+	if raw := os.Getenv("ADLC_PORT"); raw != "" {
+		p, err := strconv.Atoi(raw)
+		if err != nil {
+			t.Fatalf("invalid ADLC_PORT: %v", err)
+		}
+		port = p
+	}
+
+	auth := os.Getenv("ADLC_WINRM_AUTH")
+	if auth == "" {
+		auth = "ntlm"
+	}
+
+	cfg := config.Config{
+		Host:               host,
+		Port:               port,
+		Transport:          "winrm",
+		Username:           os.Getenv("ADLC_USERNAME"),
+		Password:           os.Getenv("ADLC_PASSWORD"),
+		Insecure:           os.Getenv("ADLC_INSECURE") == "true",
+		PowerShellPath:     "pwsh",
+		Timeout:            60 * time.Second,
+		WinRMUseTLS:        os.Getenv("ADLC_WINRM_USE_TLS") == "true",
+		WinRMAuth:          auth,
+		WinRMKerberosRealm: os.Getenv("ADLC_WINRM_KERBEROS_REALM"),
+	}
+
+	c, err := client.New(cfg)
+	if err != nil {
+		t.Fatalf("creating client: %v", err)
+	}
+	return c
+}
+
+// TestEnsureUserEnabledNoPasswordDefers reproduces the orphaned-account failure: a user with
+// enabled = true and no password is created disabled, and adopting it again (the second
+// EnsureUser, which runs the Set-ADUser branch) must not fail with "password does not meet the
+// length, complexity, or history requirement". Enabling is deferred to a password resource.
+func TestEnsureUserEnabledNoPasswordDefers(t *testing.T) {
+	c := liveADClient(t)
+	ctx := context.Background()
+
+	suffix := strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+	ouPath := "adlc-acc-userenable-" + suffix
+	userName := "acc-ue-" + suffix
+
+	ou, err := EnsureOrganizationalUnit(ctx, c, ouPath, nil)
+	if err != nil {
+		t.Fatalf("creating OU: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = DeleteOrganizationalUnit(ctx, c, ou.DistinguishedName, true, ou.CreatedOrganizationalUnits)
+	})
+
+	input := UserInput{
+		Name:              userName,
+		SamAccountName:    userName,
+		UserPrincipalName: userName + "@example.test",
+		Path:              ouPath,
+		Enabled:           true,
+	}
+
+	created, err := EnsureUser(ctx, c, input)
+	if err != nil {
+		t.Fatalf("first EnsureUser: %v", err)
+	}
+	if created.Enabled {
+		t.Errorf("a passwordless account must be created disabled, got enabled = true")
+	}
+
+	// Adopt the now-existing, still-passwordless account. Before the fix this threw the
+	// password-policy error from Set-ADUser -Enabled $true.
+	adopted, err := EnsureUser(ctx, c, input)
+	if err != nil {
+		t.Fatalf("second EnsureUser (adopt) must not fail: %v", err)
+	}
+	if adopted.Enabled {
+		t.Errorf("adopting a passwordless account must leave it disabled, got enabled = true")
+	}
+}

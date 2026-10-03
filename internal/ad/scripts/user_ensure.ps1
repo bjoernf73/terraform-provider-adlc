@@ -21,13 +21,9 @@ if ($null -eq $user) {
         Path              = $containerDN
     }
 
-    # No AccountPassword is set here, so an empty password fails complexity checks if the
-    # account is created enabled. Force disabled at creation; adlc_user_password (or a later
-    # apply, once a real password exists) reconciles Enabled to the configured value.
-    $createSetParams = $setParams.Clone()
-    $createSetParams.Enabled = $false
-
-    New-ADUser @newParams @createSetParams @serverParams -ErrorAction Stop | Out-Null
+    # New-ADUser creates the account disabled (no AccountPassword is set here). Enabled is
+    # reconciled separately below, deferring to a password resource when no password exists.
+    New-ADUser @newParams @setParams @serverParams -ErrorAction Stop | Out-Null
     $user = Get-UserByIdentity $targetDN
 }
 else {
@@ -40,6 +36,9 @@ else {
 
     $user = Get-UserByIdentity $user.DistinguishedName
 }
+
+Set-UserEnabledState $user.DistinguishedName ([bool]$payload.enabled)
+$user = Get-UserByIdentity $user.DistinguishedName
 
 Sync-UserProtection $user.DistinguishedName ([bool]$user.ProtectedFromAccidentalDeletion)
 $user = Get-UserByIdentity $user.DistinguishedName

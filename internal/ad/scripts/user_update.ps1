@@ -5,6 +5,8 @@ $user = Get-UserByIdentity ([string]$payload.guid)
 $setParams = Get-UserSetParams
 Set-ADUser -Identity $user.DistinguishedName @setParams @serverParams -ErrorAction Stop
 
+Set-UserEnabledState $user.DistinguishedName ([bool]$payload.enabled)
+
 if ([string]$user.UserPrincipalName -ne [string]$payload.user_principal_name) {
     Set-ADUser -Identity $user.DistinguishedName -UserPrincipalName ([string]$payload.user_principal_name) @serverParams -ErrorAction Stop
 }

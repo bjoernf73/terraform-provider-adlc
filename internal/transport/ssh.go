@@ -32,11 +32,21 @@ func NewSSHRunner(cfg config.Config) (Runner, error) {
 	return &sshRunner{config: cfg}, nil
 }
 
-func (r *sshRunner) Run(_ context.Context, command string, stdin string) (Result, error) {
+func (r *sshRunner) Run(ctx context.Context, command string, stdin string) (Result, error) {
 	sshConfig, err := r.buildClientConfig()
 	if err != nil {
 		return Result{}, err
 	}
+
+	// Bound the whole operation. Terraform may pass a context without a deadline, and
+	// session.Run blocks with no timeout of its own, so a hung remote command would otherwise
+	// stall the apply indefinitely. sshConfig.Timeout only covers the dial, not execution.
+	timeout := r.config.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	address := net.JoinHostPort(r.config.Host, fmt.Sprintf("%d", r.config.Port))
 	conn, err := ssh.Dial("tcp", address, sshConfig)
@@ -58,7 +68,21 @@ func (r *sshRunner) Run(_ context.Context, command string, stdin string) (Result
 	session.Stderr = &stderr
 	session.Stdin = strings.NewReader(stdin)
 
-	runErr := session.Run(command)
+	done := make(chan error, 1)
+	go func() { done <- session.Run(command) }()
+
+	var runErr error
+	select {
+	case runErr = <-done:
+	case <-ctx.Done():
+		// Tear down the connection to unblock session.Run, wait for it to return so the
+		// output buffers are no longer being written, then surface the timeout.
+		_ = conn.Close()
+		<-done
+		return Result{Stdout: stdout.String(), Stderr: stderr.String()},
+			fmt.Errorf("ssh command timed out after %s: %w", timeout, ctx.Err())
+	}
+
 	result := Result{
 		Stdout:   stdout.String(),
 		Stderr:   stderr.String(),
