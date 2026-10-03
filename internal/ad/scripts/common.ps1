@@ -28,8 +28,11 @@ function Get-ServerParams {
 
 $script:ADLCLdapConnection = $null
 
-# The DC or domain to bind to: the configured domain_controller, else the host's own domain
-# (USERDNSDOMAIN), which the DC locator resolves to a reachable DC.
+# The DC or domain to bind to, resolved without depending on any single environment variable.
+# Preference: the configured domain_controller; then USERDNSDOMAIN (populated under WinRM but
+# often absent in an SSH exec session); then the machine's domain membership read from the
+# directory and, last, from the local network configuration. The domain forms let the DC
+# locator resolve a reachable DC.
 function Get-ADLCLdapServer {
     if ($null -ne $payload -and $null -ne $payload.domain_controller -and -not [string]::IsNullOrWhiteSpace([string]$payload.domain_controller)) {
         return [string]$payload.domain_controller
@@ -37,6 +40,27 @@ function Get-ADLCLdapServer {
 
     if (-not [string]::IsNullOrWhiteSpace($env:USERDNSDOMAIN)) {
         return [string]$env:USERDNSDOMAIN
+    }
+
+    try {
+        return [System.DirectoryServices.ActiveDirectory.Domain]::GetComputerDomain().Name
+    }
+    catch {
+    }
+
+    try {
+        return [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name
+    }
+    catch {
+    }
+
+    try {
+        $dnsDomain = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+        if (-not [string]::IsNullOrWhiteSpace($dnsDomain)) {
+            return $dnsDomain
+        }
+    }
+    catch {
     }
 
     return $null
