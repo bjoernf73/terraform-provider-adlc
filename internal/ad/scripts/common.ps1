@@ -16,9 +16,137 @@ function Get-ServerParams {
     return $serverParams
 }
 
+# ---------------------------------------------------------------------------
+# LDAP (System.DirectoryServices.Protocols) helpers
+#
+# S.DS.P ships in the base class library, so unlike the ActiveDirectory module it needs no
+# import. That import costs ~600 ms per process, and the provider runs every operation in a
+# fresh remote shell, so the cost is paid again on every single read and write. Reads served
+# from these helpers skip it entirely. One connection is cached per process and reused.
+# ---------------------------------------------------------------------------
+
+$script:ADLCLdapConnection = $null
+
+# The DC or domain to bind to: the configured domain_controller, else the host's own domain
+# (USERDNSDOMAIN), which the DC locator resolves to a reachable DC.
+function Get-ADLCLdapServer {
+    if ($null -ne $payload -and $null -ne $payload.domain_controller -and -not [string]::IsNullOrWhiteSpace([string]$payload.domain_controller)) {
+        return [string]$payload.domain_controller
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:USERDNSDOMAIN)) {
+        return [string]$env:USERDNSDOMAIN
+    }
+
+    return $null
+}
+
+function Get-ADLCLdapConnection {
+    if ($null -ne $script:ADLCLdapConnection) {
+        return $script:ADLCLdapConnection
+    }
+
+    $server = Get-ADLCLdapServer
+    if ([string]::IsNullOrWhiteSpace($server)) {
+        throw "cannot determine a domain controller to bind to: set domain_controller or run on a domain-joined host"
+    }
+
+    $identifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($server)
+    $connection = New-Object System.DirectoryServices.Protocols.LdapConnection($identifier)
+    $connection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Negotiate
+    $connection.SessionOptions.ProtocolVersion = 3
+    # Sign and encrypt the LDAP traffic so the bind satisfies a DC configured to require
+    # LDAP signing (the default hardening on current Windows Server).
+    $connection.SessionOptions.Sealing = $true
+    $connection.Bind()
+
+    $script:ADLCLdapConnection = $connection
+    return $connection
+}
+
+# Reads the RootDSE (base scope, empty DN) and returns the requested operational attributes.
+function Get-ADLCRootDSE([string[]]$Attributes) {
+    $connection = Get-ADLCLdapConnection
+    $request = New-Object System.DirectoryServices.Protocols.SearchRequest('', '(objectClass=*)', ([System.DirectoryServices.Protocols.SearchScope]::Base), $Attributes)
+    $response = $connection.SendRequest($request)
+    return $response.Entries[0]
+}
+
+# Base-reads a single entry by DN, returning $null when it does not exist.
+function Get-ADLCEntry([string]$DistinguishedName, [string[]]$Attributes, [string]$Filter = '(objectClass=*)') {
+    $connection = Get-ADLCLdapConnection
+    $request = New-Object System.DirectoryServices.Protocols.SearchRequest($DistinguishedName, $Filter, ([System.DirectoryServices.Protocols.SearchScope]::Base), $Attributes)
+    try {
+        $response = $connection.SendRequest($request)
+    }
+    catch [System.DirectoryServices.Protocols.DirectoryOperationException] {
+        if ($_.Exception.Response.ResultCode -eq [System.DirectoryServices.Protocols.ResultCode]::NoSuchObject) {
+            return $null
+        }
+        throw
+    }
+
+    if ($response.Entries.Count -eq 0) {
+        return $null
+    }
+
+    return $response.Entries[0]
+}
+
+# Searches under a base DN and returns the matching entries (possibly none).
+function Search-ADLCEntries([string]$BaseDN, [string]$Filter, [System.DirectoryServices.Protocols.SearchScope]$Scope, [string[]]$Attributes) {
+    $connection = Get-ADLCLdapConnection
+    $request = New-Object System.DirectoryServices.Protocols.SearchRequest($BaseDN, $Filter, $Scope, $Attributes)
+    $response = $connection.SendRequest($request)
+    return $response.Entries
+}
+
+# Reads a single string-valued attribute, or $null when absent.
+function Get-ADLCString($Entry, [string]$Name) {
+    if ($null -eq $Entry -or -not $Entry.Attributes.Contains($Name)) {
+        return $null
+    }
+
+    return [string]$Entry.Attributes[$Name][0]
+}
+
+# Converts the DC= components of a distinguished name to a dotted DNS name.
+function ConvertFrom-DNToDnsName([string]$DistinguishedName) {
+    $labels = @($DistinguishedName -split '(?<!\\),' | Where-Object { $_ -match '^\s*DC=' } | ForEach-Object { ($_ -replace '^\s*DC=', '').Trim() })
+    return ($labels -join '.')
+}
+
+# Maps msDS-Behavior-Version to the ADDomainMode token the ActiveDirectory module reports, so
+# state carries the same value whichever read path produced it.
+function Convert-DomainModeFromBehaviorVersion($Version) {
+    switch ([int]$Version) {
+        0 { 'Windows2000Domain' }
+        1 { 'Windows2003InterimDomain' }
+        2 { 'Windows2003Domain' }
+        3 { 'Windows2008Domain' }
+        4 { 'Windows2008R2Domain' }
+        5 { 'Windows2012Domain' }
+        6 { 'Windows2012R2Domain' }
+        7 { 'Windows2016Domain' }
+        default { 'Unknown' }
+    }
+}
+
+# fSMORoleOwner points at an NTDS Settings object; its parent server object carries the
+# dNSHostName that the ActiveDirectory module reports for the role holder.
+function Resolve-ADLCFsmoHost([string]$NtdsSettingsDN) {
+    if ([string]::IsNullOrWhiteSpace($NtdsSettingsDN)) {
+        return $null
+    }
+
+    $serverDN = Get-ParentDN $NtdsSettingsDN
+    $entry = Get-ADLCEntry -DistinguishedName $serverDN -Attributes @('dNSHostName')
+    return Get-ADLCString $entry 'dNSHostName'
+}
+
 function Get-DomainDN {
-    $serverParams = Get-ServerParams
-    return (Get-ADDomain @serverParams -ErrorAction Stop).DistinguishedName
+    $entry = Get-ADLCRootDSE @('defaultNamingContext')
+    return [string]$entry.Attributes['defaultNamingContext'][0]
 }
 
 function Get-OptionalString($Value) {
