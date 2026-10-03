@@ -145,6 +145,131 @@ function Resolve-ADLCFsmoHost([string]$NtdsSettingsDN) {
     return Get-ADLCString $entry 'dNSHostName'
 }
 
+# Decodes an entry's objectSid to its SDDL string, or $null when absent.
+function Get-ADLCSid($Entry) {
+    if ($null -eq $Entry -or -not $Entry.Attributes.Contains('objectSid')) {
+        return $null
+    }
+
+    $bytes = $Entry.Attributes['objectSid'].GetValues([byte[]])[0]
+    return (New-Object System.Security.Principal.SecurityIdentifier($bytes, 0)).Value
+}
+
+# Decodes an entry's objectGUID to its canonical string, or $null when absent.
+function Get-ADLCGuid($Entry) {
+    if ($null -eq $Entry -or -not $Entry.Attributes.Contains('objectGUID')) {
+        return $null
+    }
+
+    $bytes = $Entry.Attributes['objectGUID'].GetValues([byte[]])[0]
+    return ([guid]::new($bytes)).ToString()
+}
+
+# Escapes a byte array as the backslash-hex form an LDAP filter needs for binary attributes.
+function ConvertTo-ADLCFilterBytes([byte[]]$Bytes) {
+    return (($Bytes | ForEach-Object { '\{0:x2}' -f $_ }) -join '')
+}
+
+# Reads an object's security descriptor (owner/group/DACL, never the SACL, so no privilege is
+# required) as a parsed ActiveDirectorySecurity, or $null when the object has none.
+function Get-ADLCSecurityDescriptor([string]$DistinguishedName) {
+    $connection = Get-ADLCLdapConnection
+    $request = New-Object System.DirectoryServices.Protocols.SearchRequest($DistinguishedName, '(objectClass=*)', ([System.DirectoryServices.Protocols.SearchScope]::Base), @('nTSecurityDescriptor'))
+    $masks = [System.DirectoryServices.Protocols.SecurityMasks]::Owner -bor [System.DirectoryServices.Protocols.SecurityMasks]::Group -bor [System.DirectoryServices.Protocols.SecurityMasks]::Dacl
+    [void]$request.Controls.Add((New-Object System.DirectoryServices.Protocols.SecurityDescriptorFlagControl($masks)))
+    try {
+        $response = $connection.SendRequest($request)
+    }
+    catch [System.DirectoryServices.Protocols.DirectoryOperationException] {
+        if ($_.Exception.Response.ResultCode -eq [System.DirectoryServices.Protocols.ResultCode]::NoSuchObject) {
+            return $null
+        }
+        throw
+    }
+
+    if ($response.Entries.Count -eq 0 -or -not $response.Entries[0].Attributes.Contains('ntsecuritydescriptor')) {
+        return $null
+    }
+
+    $bytes = $response.Entries[0].Attributes['nTSecurityDescriptor'].GetValues([byte[]])[0]
+    $security = New-Object System.DirectoryServices.ActiveDirectorySecurity
+    $security.SetSecurityDescriptorBinaryForm($bytes)
+    return $security
+}
+
+# True when the descriptor carries the ProtectedFromAccidentalDeletion ACE: an explicit Deny for
+# Everyone (S-1-1-0) including Delete and DeleteTree, matching the ActiveDirectory module.
+function Test-ADLCProtectedFromAccidentalDeletion($Security) {
+    if ($null -eq $Security) {
+        return $false
+    }
+
+    $everyone = 'S-1-1-0'
+    $delete = [System.DirectoryServices.ActiveDirectoryRights]::Delete
+    $deleteTree = [System.DirectoryServices.ActiveDirectoryRights]::DeleteTree
+    foreach ($ace in $Security.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {
+        if ($ace.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Deny) { continue }
+        if ([string]$ace.IdentityReference -ne $everyone) { continue }
+        $rights = $ace.ActiveDirectoryRights
+        if ((($rights -band $delete) -eq $delete) -and (($rights -band $deleteTree) -eq $deleteTree)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+# True when the descriptor grants the SID an explicit Allow WriteProperty on the group member
+# attribute - the ACE that 'manager can update membership' adds.
+function Test-ADLCMemberWriteGranted($Security, [string]$Sid) {
+    if ($null -eq $Security -or [string]::IsNullOrWhiteSpace($Sid)) {
+        return $false
+    }
+
+    $memberGuid = [guid]'bf9679c0-0de6-11d0-a285-00aa003049e2'
+    foreach ($ace in $Security.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {
+        if ($ace.IsInherited) { continue }
+        if ($ace.ObjectType -ne $memberGuid) { continue }
+        if ($ace.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
+        if (-not ($ace.ActiveDirectoryRights.ToString() -match 'WriteProperty')) { continue }
+        if ([string]$ace.IdentityReference -eq $Sid) { return $true }
+    }
+
+    return $false
+}
+
+# LDAP counterpart of Resolve-ADPrincipal: resolves a DN, GUID, SID, DOMAIN\name or sAMAccountName
+# to an entry carrying the requested attributes, or $null when none matches.
+function Resolve-ADLCPrincipal([string]$Identity, [string[]]$Attributes = @('distinguishedName', 'objectSid')) {
+    if ($Identity -match '^(CN|OU|DC)=') {
+        return Get-ADLCEntry -DistinguishedName $Identity -Attributes $Attributes
+    }
+
+    $domainDN = Get-DomainDN
+    $parsedGuid = [guid]::Empty
+    if ([guid]::TryParse($Identity, [ref]$parsedGuid)) {
+        $filter = '(objectGUID=' + (ConvertTo-ADLCFilterBytes $parsedGuid.ToByteArray()) + ')'
+    }
+    elseif ($Identity -match '^S-\d-') {
+        $sidObject = New-Object System.Security.Principal.SecurityIdentifier($Identity)
+        $sidBytes = New-Object byte[] ($sidObject.BinaryLength)
+        $sidObject.GetBinaryForm($sidBytes, 0)
+        $filter = '(objectSid=' + (ConvertTo-ADLCFilterBytes $sidBytes) + ')'
+    }
+    else {
+        $sam = $Identity
+        if ($sam.Contains('\')) { $sam = $sam.Split('\')[-1] }
+        $filter = '(sAMAccountName=' + (ConvertTo-LDAPFilterValue $sam) + ')'
+    }
+
+    $hits = @(Search-ADLCEntries $domainDN $filter ([System.DirectoryServices.Protocols.SearchScope]::Subtree) $Attributes)
+    if ($hits.Count -gt 0) {
+        return $hits[0]
+    }
+
+    return $null
+}
+
 function Get-DomainDN {
     $entry = Get-ADLCRootDSE @('defaultNamingContext')
     return [string]$entry.Attributes['defaultNamingContext'][0]
