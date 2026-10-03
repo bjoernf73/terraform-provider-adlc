@@ -287,6 +287,36 @@ resource "adlc_group_member" "operators_in_admins" {
   member = adlc_group.operators.id
 }
 
+# Replication sites and their subnets live in the forest-wide Configuration partition.
+# Two sites exercise single-subnet (primary) vs multi-subnet (secondary) assignment.
+# Names avoid "s13" (already present in the forest); subnets stay in 172.16.0.0/16, in a
+# high /24 block kept clear of the per-pipeline e2e subnets below .250.
+resource "adlc_site" "primary" {
+  name        = "adlc-showcase-primary"
+  description = "Showcase primary replication site"
+}
+
+resource "adlc_site" "secondary" {
+  name        = "adlc-showcase-secondary"
+  description = "Showcase secondary replication site"
+}
+
+# Single subnet on the primary site (single-item read path).
+resource "adlc_subnet" "primary" {
+  name        = "172.16.250.0/24"
+  site        = adlc_site.primary.name
+  description = "Showcase primary subnet"
+  location    = "Showcase DC / Rack 1"
+}
+
+# Multiple subnets on the secondary site (array read path).
+resource "adlc_subnet" "secondary" {
+  for_each = toset(["172.16.251.0/24", "172.16.252.0/24"])
+
+  name = each.value
+  site = adlc_site.secondary.name
+}
+
 # Constructor 1: rights on the object itself.
 resource "adlc_access_rule" "constructor1_full_control" {
   target  = adlc_organizational_unit.root.distinguished_name
@@ -566,6 +596,21 @@ output "gpo_links" {
     # Multi-link OU built from json_gpo imports.
     staff_target_dn = adlc_gpo_links.staff.target_dn
     staff_links     = adlc_gpo_links.staff.links
+  }
+}
+
+output "sites" {
+  value = {
+    primary   = adlc_site.primary.distinguished_name
+    secondary = adlc_site.secondary.distinguished_name
+  }
+}
+
+output "subnets" {
+  value = {
+    # Single subnet on primary, map of subnets on secondary.
+    primary   = adlc_subnet.primary.distinguished_name
+    secondary = { for cidr, s in adlc_subnet.secondary : cidr => s.distinguished_name }
   }
 }
 

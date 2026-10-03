@@ -179,6 +179,52 @@ output "gpo_links_id" {
   value = try(adlc_gpo_links.smoke[0].id, null)
 }
 
+# Replication site and subnets (forest-wide Configuration partition). The parallel
+# winrm/ssh jobs must not collide: the site name is namespaced by group_name (already
+# pipeline- and transport-unique), but subnet CIDRs can't be. The /24 third octet is
+# therefore derived from the pipeline id embedded in group_name plus a per-transport
+# offset, kept inside 172.16.0.0/16 and below the showcase's fixed .250-.252 block.
+locals {
+  e2e_pipeline_id = try(tonumber(regex("adlc-ci-(\\d+)-", var.group_name)[0]), 0)
+  e2e_subnet_base = (local.e2e_pipeline_id % 40) * 6 + (var.transport == "ssh" ? 3 : 0)
+}
+
+resource "adlc_site" "smoke" {
+  name        = "${var.group_name}-site"
+  description = var.ou_description
+}
+
+# Single subnet on the smoke site (single-item read path).
+resource "adlc_subnet" "smoke" {
+  name        = "172.16.${local.e2e_subnet_base}.0/24"
+  site        = adlc_site.smoke.name
+  description = var.ou_description
+  location    = "CI/${var.transport}"
+}
+
+# Two more subnets so the single-vs-multiple read path is exercised on the same site.
+resource "adlc_subnet" "smoke_extra" {
+  for_each = toset([
+    "172.16.${local.e2e_subnet_base + 1}.0/24",
+    "172.16.${local.e2e_subnet_base + 2}.0/24",
+  ])
+
+  name = each.value
+  site = adlc_site.smoke.name
+}
+
+output "site_id" {
+  value = adlc_site.smoke.id
+}
+
+output "site_distinguished_name" {
+  value = adlc_site.smoke.distinguished_name
+}
+
+output "subnet_ids" {
+  value = concat([adlc_subnet.smoke.id], [for s in adlc_subnet.smoke_extra : s.id])
+}
+
 output "backup_gpos" {
   value = {
     domain_gpo2 = try({ id = adlc_backup_gpo.domain_gpo2[0].id, dn = adlc_backup_gpo.domain_gpo2[0].distinguished_name }, null)
