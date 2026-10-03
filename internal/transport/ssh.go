@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
@@ -54,6 +55,13 @@ func (r *sshRunner) Run(ctx context.Context, command string, stdin string) (Resu
 		if attempt == sshMaxAttempts {
 			break
 		}
+
+		tflog.Warn(ctx, "ssh command failed with a transport-level error; retrying", map[string]any{
+			"attempt":      attempt,
+			"max_attempts": sshMaxAttempts,
+			"backoff":      backoff.String(),
+			"error":        err.Error(),
+		})
 
 		// Space out retries, but abandon them immediately if the caller gave up.
 		select {
