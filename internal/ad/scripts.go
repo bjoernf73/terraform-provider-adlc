@@ -20,7 +20,8 @@ const commonScript = "common.ps1"
 // buildScript omits the ~600 ms module import for these; migrating an operation to LDAP means
 // adding it here.
 var moduleFreeOperations = map[string]bool{
-	"domain_read": true,
+	"domain_read":              true,
+	"organizational_unit_read": true,
 }
 
 func script(name string) string {

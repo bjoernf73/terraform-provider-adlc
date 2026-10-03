@@ -1,22 +1,19 @@
 $domainDN = Get-DomainDN
 
-try {
-    $ou = Get-LeafOrganizationalUnit ([string]$payload.distinguished_name)
+$entry = Get-ADLCEntry -DistinguishedName ([string]$payload.distinguished_name) -Attributes @('description', 'name') -Filter '(objectClass=organizationalUnit)'
+
+if ($null -eq $entry) {
     [pscustomobject]@{
-        exists = $true
-        path = Convert-DNToPath $ou.DistinguishedName $domainDN
-        description = $ou.Description
-        distinguished_name = $ou.DistinguishedName
-        name = $ou.Name
+        exists = $false
     } | ConvertTo-Json -Compress
 }
-catch {
-    if (Test-IsIdentityNotFound $_) {
-        [pscustomobject]@{
-            exists = $false
-        } | ConvertTo-Json -Compress
-    }
-    else {
-        throw
-    }
+else {
+    $dn = [string]$entry.DistinguishedName
+    [pscustomobject]@{
+        exists             = $true
+        path               = Convert-DNToPath $dn $domainDN
+        description        = Get-ADLCString $entry 'description'
+        distinguished_name = $dn
+        name               = Get-ADLCString $entry 'name'
+    } | ConvertTo-Json -Compress
 }
