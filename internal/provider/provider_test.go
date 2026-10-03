@@ -62,6 +62,18 @@ func testAccProviderConfig() string {
 	if auth := os.Getenv("ADLC_WINRM_AUTH"); auth != "" {
 		fmt.Fprintf(&b, "  winrm_auth = %q\n", auth)
 	}
+	if realm := os.Getenv("ADLC_WINRM_KERBEROS_REALM"); realm != "" {
+		fmt.Fprintf(&b, "  winrm_kerberos_realm = %q\n", realm)
+	}
+	if conf := os.Getenv("ADLC_WINRM_KERBEROS_CONFIG_PATH"); conf != "" {
+		fmt.Fprintf(&b, "  winrm_kerberos_config_path = %q\n", conf)
+	}
+	if spn := os.Getenv("ADLC_WINRM_KERBEROS_SPN"); spn != "" {
+		fmt.Fprintf(&b, "  winrm_kerberos_spn = %q\n", spn)
+	}
+	if ccache := os.Getenv("ADLC_WINRM_KERBEROS_CCACHE_PATH"); ccache != "" {
+		fmt.Fprintf(&b, "  winrm_kerberos_ccache_path = %q\n", ccache)
+	}
 	if testAccEnvBool("ADLC_WINRM_USE_TLS") {
 		b.WriteString("  winrm_use_tls = true\n")
 	}

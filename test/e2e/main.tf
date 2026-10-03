@@ -10,16 +10,17 @@ terraform {
 }
 
 provider "adlc" {
-  transport       = var.transport
-  host            = var.host
-  port            = var.port
-  username        = var.username
-  password        = var.password
-  winrm_use_tls   = var.winrm_use_tls
-  winrm_auth      = var.winrm_auth
-  insecure        = var.insecure
-  powershell_path = var.powershell_path
-  timeout_seconds = var.timeout_seconds
+  transport            = var.transport
+  host                 = var.host
+  port                 = var.port
+  username             = var.username
+  password             = var.password
+  winrm_use_tls        = var.winrm_use_tls
+  winrm_auth           = var.winrm_auth
+  winrm_kerberos_realm = var.winrm_kerberos_realm
+  insecure             = var.insecure
+  powershell_path      = var.powershell_path
+  timeout_seconds      = var.timeout_seconds
 }
 
 data "adlc_domain" "current" {}

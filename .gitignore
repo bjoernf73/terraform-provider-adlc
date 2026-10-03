@@ -13,6 +13,11 @@ modules-dev/
 .provider-mirror/
 .terraformrc.local
 
+# Local test/dev environment variables (dot-sourced, never committed).
+.env
+.env.*
+!.env.example.ps1
+
 # The lock file records checksums for the platform that generated it, and the
 # dev provider is installed from a local mirror, so it must not be committed.
 .terraform/

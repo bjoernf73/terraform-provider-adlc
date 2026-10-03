@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -54,16 +56,38 @@ func NewWinRMRunner(cfg config.Config) (Runner, error) {
 			spn = fmt.Sprintf("HTTP/%s", cfg.Host)
 		}
 
+		// gokrb5 needs a krb5.conf file; Windows has no default. When the user did
+		// not supply one, synthesise a minimal config from the realm and target host
+		// so Kerberos works out of the box on a domain-joined machine.
+		krbConf := cfg.WinRMKerberosConfig
+		if krbConf == "" {
+			generated, err := writeKerberosConfig(cfg.WinRMKerberosRealm, cfg.Host)
+			if err != nil {
+				return nil, err
+			}
+			krbConf = generated
+		}
+
+		// The Kerberos principal is a bare account name; strip any NetBIOS/domain
+		// prefix (e.g. "UTV\Administrator") since the realm is supplied separately.
+		krbUser := cfg.Username
+		if idx := strings.IndexAny(krbUser, `\/`); idx >= 0 {
+			krbUser = krbUser[idx+1:]
+		}
+		if idx := strings.Index(krbUser, "@"); idx >= 0 {
+			krbUser = krbUser[:idx]
+		}
+
 		params.TransportDecorator = func() winrm.Transporter {
 			return &winrm.ClientKerberos{
-				Username:  cfg.Username,
+				Username:  krbUser,
 				Password:  cfg.Password,
-				Realm:     cfg.WinRMKerberosRealm,
+				Realm:     strings.ToUpper(cfg.WinRMKerberosRealm),
 				Hostname:  cfg.Host,
 				Port:      cfg.Port,
 				Proto:     proto,
 				SPN:       spn,
-				KrbConf:   cfg.WinRMKerberosConfig,
+				KrbConf:   krbConf,
 				KrbCCache: cfg.WinRMKerberosCCache,
 			}
 		}
@@ -99,6 +123,37 @@ func NewWinRMRunner(cfg config.Config) (Runner, error) {
 		endpoint:  fmt.Sprintf("%s://%s:%d/wsman", scheme, cfg.Host, cfg.Port),
 		auth:      auth,
 	}, nil
+}
+
+// writeKerberosConfig synthesises a minimal krb5.conf for the given realm, using the
+// target host as the KDC, and writes it to a stable per-realm temp file. gokrb5 requires
+// a config file path and Windows has no default location for one.
+func writeKerberosConfig(realm, host string) (string, error) {
+	realm = strings.TrimSpace(realm)
+	if realm == "" {
+		return "", fmt.Errorf("winrm kerberos: realm is required to generate krb5.conf")
+	}
+	realm = strings.ToUpper(realm)
+
+	content := fmt.Sprintf(`[libdefaults]
+    default_realm = %[1]s
+    dns_lookup_kdc = true
+    dns_lookup_realm = false
+    udp_preference_limit = 1
+
+[realms]
+    %[1]s = {
+        kdc = %[2]s
+        admin_server = %[2]s
+    }
+`, realm, host)
+
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("adlc-krb5-%s.conf", strings.ToLower(realm)))
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return "", fmt.Errorf("winrm kerberos: writing krb5.conf: %w", err)
+	}
+
+	return path, nil
 }
 
 func (r *winrmRunner) Run(ctx context.Context, command string, stdin string) (Result, error) {

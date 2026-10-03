@@ -39,6 +39,13 @@ variable "winrm_auth" {
   default     = "ntlm"
 }
 
+variable "winrm_kerberos_realm" {
+  type        = string
+  description = "Kerberos realm for WinRM kerberos authentication, for example UTV.LOCAL."
+  default     = null
+  nullable    = true
+}
+
 variable "insecure" {
   type        = bool
   description = "Skip TLS certificate validation for WinRM and host key verification for SSH."
