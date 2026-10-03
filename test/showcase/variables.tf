@@ -40,8 +40,8 @@ variable "powershell_path" {
 
 variable "timeout_seconds" {
   type        = number
-  description = "Connection timeout in seconds."
-  default     = 60
+  description = "Connection timeout in seconds. 120 gives GPO operations headroom when the single test DC is under load."
+  default     = 120
 }
 
 variable "showcase_path" {
