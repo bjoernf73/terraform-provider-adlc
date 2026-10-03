@@ -45,6 +45,11 @@ unit:
 
 .e2e_template:
   stage: e2e
+  # Serialize every DC-touching job (winrm, ssh, winrm-https) against the single test DC:
+  # concurrent applies on one box contend on LSASS/WinRM/sshd/GroupPolicy and inflate SSH
+  # timings (Import-GPO can exceed timeout_seconds). resource_group runs them one at a time
+  # project-wide while leaving build/lint/test free to parallelize.
+  resource_group: dc
   image:
     name: $TF_IMAGE
     entrypoint: [""]
