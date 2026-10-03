@@ -43,7 +43,7 @@ type jsonGPOResourceModel struct {
 	Status            types.String `tfsdk:"status"`
 
 	// Version at the time of our last import, used by ModifyPlan to detect edits made
-	// outside Terraform since; Read() must never overwrite these, see planDriftReimport.
+	// outside Terraform since; Read() must never overwrite these, see markVersionsUnknownOnReimport.
 	ComputerADVersion     types.Int64 `tfsdk:"computer_ad_version"`
 	ComputerSysvolVersion types.Int64 `tfsdk:"computer_sysvol_version"`
 	UserADVersion         types.Int64 `tfsdk:"user_ad_version"`
@@ -207,15 +207,18 @@ func (r *jsonGPOResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	hash := ad.HashJsonGPOContent(jsonContent, replacements)
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("content_hash"), types.StringValue(hash))...)
 
-	r.planDriftReimport(ctx, req, resp)
+	r.markVersionsUnknownOnReimport(ctx, req, resp, hash)
 }
 
-// planDriftReimport detects a GPO changed outside Terraform since the last apply. Read()
-// deliberately never touches the version watermark fields, so req.State here still holds
-// the version recorded after our last import; an extra live fetch lets us compare it
-// against the current version and force a re-import when they differ, which is the only
-// way to revert drift Terraform has no other way to see.
-func (r *jsonGPOResource) planDriftReimport(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+// markVersionsUnknownOnReimport forces the version watermark attributes to unknown whenever this
+// plan will re-import the GPO - because the local JSON content changed, or because the live GPO
+// drifted from the watermark recorded after our last import. The import bumps the GPO version every
+// time it runs (so domain computers pick up the change) by an amount we cannot predict at plan
+// time, so carrying a concrete value over from state would fail apply with "inconsistent result
+// after apply". Read() deliberately never refreshes the watermark, so req.State still holds the
+// post-import version and a single live fetch is enough to spot drift Terraform has no other way
+// to see.
+func (r *jsonGPOResource) markVersionsUnknownOnReimport(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse, contentHash string) {
 	if req.State.Raw.IsNull() || r.client == nil {
 		return
 	}
@@ -226,23 +229,28 @@ func (r *jsonGPOResource) planDriftReimport(ctx context.Context, req resource.Mo
 		return
 	}
 
-	current, err := ad.ReadJsonGPO(ctx, r.client, state.ID.ValueString())
-	if err != nil || !current.Exists {
-		// Let the ordinary refresh pass surface the error, or the removal, instead.
+	reimport := state.ContentHash.ValueString() != contentHash
+	if !reimport {
+		current, err := ad.ReadJsonGPO(ctx, r.client, state.ID.ValueString())
+		if err != nil || !current.Exists {
+			// Let the ordinary refresh pass surface the error, or the removal, instead.
+			return
+		}
+
+		reimport = current.ComputerADVersion != state.ComputerADVersion.ValueInt64() ||
+			current.ComputerSysvolVersion != state.ComputerSysvolVersion.ValueInt64() ||
+			current.UserADVersion != state.UserADVersion.ValueInt64() ||
+			current.UserSysvolVersion != state.UserSysvolVersion.ValueInt64()
+	}
+
+	if !reimport {
 		return
 	}
 
-	if current.ComputerADVersion == state.ComputerADVersion.ValueInt64() &&
-		current.ComputerSysvolVersion == state.ComputerSysvolVersion.ValueInt64() &&
-		current.UserADVersion == state.UserADVersion.ValueInt64() &&
-		current.UserSysvolVersion == state.UserSysvolVersion.ValueInt64() {
-		return
-	}
-
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_ad_version"), types.Int64Value(current.ComputerADVersion))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_sysvol_version"), types.Int64Value(current.ComputerSysvolVersion))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_ad_version"), types.Int64Value(current.UserADVersion))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_sysvol_version"), types.Int64Value(current.UserSysvolVersion))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_ad_version"), types.Int64Unknown())...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_sysvol_version"), types.Int64Unknown())...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_ad_version"), types.Int64Unknown())...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_sysvol_version"), types.Int64Unknown())...)
 }
 
 func (r *jsonGPOResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -282,7 +290,7 @@ func (r *jsonGPOResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Deliberately does not touch the version watermark: see planDriftReimport.
+	// Deliberately does not touch the version watermark: see markVersionsUnknownOnReimport.
 	resp.Diagnostics.Append(resp.State.Set(ctx, applyJsonGPOResult(state, gpo))...)
 }
 
@@ -362,7 +370,7 @@ func applyJsonGPOResult(model jsonGPOResourceModel, gpo *ad.JsonGPO) jsonGPOReso
 }
 
 // applyJsonGPOVersion stamps the version watermark after a successful import. Only
-// Create/Update should call this; Read() must leave it alone, see planDriftReimport.
+// Create/Update should call this; Read() must leave it alone, see markVersionsUnknownOnReimport.
 func applyJsonGPOVersion(model jsonGPOResourceModel, gpo *ad.JsonGPO) jsonGPOResourceModel {
 	model.ComputerADVersion = types.Int64Value(gpo.ComputerADVersion)
 	model.ComputerSysvolVersion = types.Int64Value(gpo.ComputerSysvolVersion)
