@@ -23,6 +23,7 @@ var moduleFreeOperations = map[string]bool{
 	"domain_read":              true,
 	"organizational_unit_read": true,
 	"group_read":               true,
+	"user_read":                true,
 }
 
 func script(name string) string {

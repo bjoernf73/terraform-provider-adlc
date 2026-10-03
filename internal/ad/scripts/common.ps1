@@ -238,6 +238,26 @@ function Test-ADLCMemberWriteGranted($Security, [string]$Sid) {
     return $false
 }
 
+# True when the descriptor denies the User-Change-Password control right to Everyone or Self,
+# which is how 'user cannot change password' is stored. Matches the ActiveDirectory module.
+function Test-ADLCCannotChangePassword($Security) {
+    if ($null -eq $Security) {
+        return $false
+    }
+
+    $changePassword = [guid]'ab721a53-1e2f-11d0-9819-00aa0040529b'
+    $everyone = 'S-1-1-0'
+    $self = 'S-1-5-10'
+    foreach ($ace in $Security.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier])) {
+        if ($ace.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Deny) { continue }
+        if ($ace.ObjectType -ne $changePassword) { continue }
+        $identity = [string]$ace.IdentityReference
+        if ($identity -eq $everyone -or $identity -eq $self) { return $true }
+    }
+
+    return $false
+}
+
 # LDAP counterpart of Resolve-ADPrincipal: resolves a DN, GUID, SID, DOMAIN\name or sAMAccountName
 # to an entry carrying the requested attributes, or $null when none matches.
 function Resolve-ADLCPrincipal([string]$Identity, [string[]]$Attributes = @('distinguishedName', 'objectSid')) {
