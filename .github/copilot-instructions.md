@@ -99,6 +99,11 @@ the scripts would otherwise exceed. **Never put the script on the command line.*
 - Start with `$ErrorActionPreference = 'Stop'` and `Import-Module ActiveDirectory -ErrorAction Stop`.
 - Honour `$payload.domain_controller` by splatting a `-Server` parameter (`Get-ServerParams`).
 - Output exactly one `ConvertTo-Json` document on stdout; write nothing else to stdout.
+- Any property that maps to a Go slice MUST be wrapped so a single item still serializes as a
+  JSON array: build it with `@(...)` (or return it from a helper via `, @(...)`). An un-wrapped
+  assignment from cmdlet/pipeline output (`prop = $result`) emits a scalar for one item and
+  `null`/absent for none, which breaks the Go `[]T` decode. Verified: an `@()`-built property
+  serializes as `[...]` for one element and `[]` for none under both `pwsh` and `powershell.exe`.
 - Treat "identity not found" as a normal state (`exists: false`), not an error.
 - Paths are slash-delimited relative to the domain root (`Contoso/Servers/Windows`) and converted
   to DNs in PowerShell; missing parent OUs are created on demand.

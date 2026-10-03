@@ -35,7 +35,7 @@ resource "adlc_organizational_unit" "root" {
 }
 
 resource "adlc_organizational_unit" "child" {
-  for_each = toset(["Servers", "Groups", "ServiceAccounts"])
+  for_each = toset(["Servers", "Groups", "ServiceAccounts", "Workstations", "Staff"])
 
   path        = "${var.showcase_path}/${each.value}"
   description = "${each.value} for the showcase"
@@ -253,6 +253,31 @@ resource "adlc_gpo_links" "servers" {
   links = [
     { gpo = adlc_backup_gpo.domain_gpo1.id },
     { gpo = adlc_backup_gpo.domain_gpo4.id, enforced = true },
+  ]
+}
+
+# SINGLE link on the Workstations OU. Deliberately one entry so the read path returns a lone
+# GPO link: PowerShell's ConvertTo-Json emits a single item as an object, not a one-element
+# array, so this guards the provider's "coerce scalar to list" handling against the common
+# single-vs-many serialization bug.
+resource "adlc_gpo_links" "workstations" {
+  target = adlc_organizational_unit.child["Workstations"].path
+
+  links = [
+    { gpo = adlc_json_gpo.imports["DoD Windows 11 Computer STIG v1r2.json"].id },
+  ]
+}
+
+# MULTIPLE json_gpo links on the Staff OU, in precedence order, with one enforced. Pairs with
+# the single-link case above so the same read/update code is exercised for both a scalar and
+# an array result.
+resource "adlc_gpo_links" "staff" {
+  target = adlc_organizational_unit.child["Staff"].path
+
+  links = [
+    { gpo = adlc_json_gpo.imports["DoD Google Chrome STIG Computer v2r7.json"].id },
+    { gpo = adlc_json_gpo.imports["DoD Microsoft Edge STIG Computer v1r6.json"].id, enforced = true },
+    { gpo = adlc_json_gpo.imports["DoD Microsoft Defender Antivirus STIG Computer v2r4.json"].id, enabled = false },
   ]
 }
 
@@ -535,6 +560,12 @@ output "gpo_links" {
   value = {
     servers_target_dn = adlc_gpo_links.servers.target_dn
     servers_links     = adlc_gpo_links.servers.links
+    # Single-link OU: proves a lone GPO link round-trips (scalar-vs-array read path).
+    workstations_target_dn = adlc_gpo_links.workstations.target_dn
+    workstations_links     = adlc_gpo_links.workstations.links
+    # Multi-link OU built from json_gpo imports.
+    staff_target_dn = adlc_gpo_links.staff.target_dn
+    staff_links     = adlc_gpo_links.staff.links
   }
 }
 
