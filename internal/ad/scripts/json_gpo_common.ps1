@@ -120,7 +120,7 @@ function Get-JsonGPOIniFile([string]$Path) {
     return $ini
 }
 
-function Write-JsonGPOIniFile([string]$Path, $Sections) {
+function Write-JsonGPOIniFile([string]$Path, $Sections, [switch]$NoBom) {
     $lines = [System.Collections.Generic.List[string]]::new()
 
     foreach ($sectionName in $Sections.Keys) {
@@ -138,8 +138,9 @@ function Write-JsonGPOIniFile([string]$Path, $Sections) {
         $lines.Add('')
     }
 
-    # UTF-8 with BOM, CRLF line endings, matching what GPMC itself writes.
-    [System.IO.File]::WriteAllText($Path, (($lines -join "`r`n") + "`r`n"), [System.Text.UTF8Encoding]::new($true))
+    # CRLF line endings. GPT.ini must be UTF-8 without a BOM (GPMC writes it that way); -NoBom
+    # selects that, other callers keep the BOM.
+    [System.IO.File]::WriteAllText($Path, (($lines -join "`r`n") + "`r`n"), [System.Text.UTF8Encoding]::new(-not $NoBom))
 }
 
 # Deserialized JSON gives PSCustomObject; ini writing needs plain hashtables.

@@ -210,8 +210,8 @@ while (-not (Test-Path -Path $gptIniPath) -and $attempts -lt 30) {
 if (Test-Path -Path $gptIniPath) {
     # A standard GPT.ini carries only [General] Version=N, the same packed number as the AD
     # versionNumber. New-GPO leaves a cosmetic displayName line that GPMC ignores; write the
-    # file clean so it matches GPMC and the SYSVOL version stays in lockstep with AD.
-    Write-JsonGPOIniFile -Path $gptIniPath -Sections ([ordered]@{ General = [ordered]@{ Version = $newVersion } })
+    # file clean and BOM-less, as GPMC does, so SYSVOL stays in lockstep with AD.
+    Write-JsonGPOIniFile -Path $gptIniPath -Sections ([ordered]@{ General = [ordered]@{ Version = $newVersion } }) -NoBom
 }
 
 $gpo = Get-GPO -Guid $gpo.Id @serverParams -ErrorAction Stop
