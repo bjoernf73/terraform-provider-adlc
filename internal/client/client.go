@@ -131,7 +131,16 @@ func (c *Client) RunPowerShellJSON(ctx context.Context, script string, target an
 	}
 
 	if strings.TrimSpace(result.Stdout) == "" {
-		return fmt.Errorf("remote PowerShell returned no JSON output")
+		// The operation scripts always emit a JSON document on success, so an empty stdout
+		// means the output never came back. Surface the remote's exit code and stderr (already
+		// CLIXML-decoded) instead of swallowing them, so the real cause - a GroupPolicy module
+		// warning, a permissions error, or a WinRM shell being recycled under its memory quota -
+		// is visible rather than hidden behind a bare "no JSON output".
+		detail := strings.TrimSpace(result.Stderr)
+		if detail == "" {
+			detail = "nothing on stdout or stderr"
+		}
+		return fmt.Errorf("remote PowerShell returned no JSON output (exit code %d): %s", result.ExitCode, detail)
 	}
 
 	if err := json.Unmarshal([]byte(result.Stdout), target); err != nil {
