@@ -150,9 +150,28 @@ knowing why:
   absorbs the intermittent pipe break. A *clean non-zero exit* (a genuine remote/AD
   error) is **never** retried, so non-idempotent operations are not re-run.
 
-If SSH flakiness persists, giving the domain controller more CPU/RAM is usually the most
-effective fix — the slow runs tend to cluster when the host is busy with replication or
-Group Policy processing.
+### Known upstream issue: intermittent connection delays
+
+Win32-OpenSSH has a documented, still-open bug where establishing a session stalls for
+**15–120 seconds** at random
+([PowerShell/Win32-OpenSSH#2425](https://github.com/PowerShell/Win32-OpenSSH/issues/2425)).
+The stall happens while the server spawns the `sshd-session.exe` subprocess — before the
+SSH protocol or your command even starts — and it reproduces across OpenSSH 9.1, 9.2 and
+10.0. Notably:
+
+- It is **not** resource exhaustion: it occurs with CPU under 10% and RAM to spare, so
+  adding CPU/RAM may not help.
+- It correlates with **idle periods**: the first connection after a quiet spell is the
+  slow one, then connections are fast again for a while. This matches the slow runs that
+  cluster right after a bulk delete or an idle gap.
+- A reported workaround is to create a local user named `sshd` on the server (see the
+  linked issue and #1817); the underlying cause appears to involve an `lsass` timeout
+  during subprocess creation, so a domain controller — where `lsass` is already busy —
+  can feel it more.
+
+The provider copes with this by enforcing `timeout_seconds` and retrying transport-level
+failures (above). Setting `timeout_seconds` to **120** or more clears the worst of the
+delay band so a stalled connect is retried rather than failing the apply.
 
 ## Timeouts
 
