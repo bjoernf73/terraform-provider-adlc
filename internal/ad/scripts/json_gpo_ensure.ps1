@@ -184,28 +184,32 @@ if ((-not $computerEnabled) -and (-not $userEnabled)) { $flags = 3 }
 Set-ADObject -Identity $gpcObject.DistinguishedName -Replace @{ flags = $flags } @serverParams -ErrorAction Stop
 
 # Bump versionNumber in both AD and SYSVOL's GPT.INI, so GPMC and gpupdate see the change.
-# +1 raises the computer version (low word), +65536 the user version (high word).
+# versionNumber packs two counters: Version = userVersion * 65536 + computerVersion, so the
+# low 16 bits are the computer version and the high 16 bits the user version. +1 raises the
+# computer version, +65536 the user version.
 [uint32]$incrementBy = 0
 if ($machineChanged) { $incrementBy += 1 }
 if ($userChanged) { $incrementBy += 65536 }
+
+$current = Get-ADObject -Identity $gpcObject.DistinguishedName -Properties versionNumber @serverParams -ErrorAction Stop
+$newVersion = [uint32]$current.versionNumber + $incrementBy
 if ($incrementBy -gt 0) {
-    $current = Get-ADObject -Identity $gpcObject.DistinguishedName -Properties versionNumber @serverParams -ErrorAction Stop
-    $newVersion = [uint32]$current.versionNumber + $incrementBy
     Set-ADObject -Identity $gpcObject.DistinguishedName -Replace @{ versionNumber = $newVersion } @serverParams -ErrorAction Stop
+}
 
-    # SYSVOL replication can lag behind the AD object New-GPO just created.
-    $gptIniPath = "$sysvolRoot\GPT.INI"
-    $attempts = 0
-    while (-not (Test-Path -Path $gptIniPath) -and $attempts -lt 30) {
-        Start-Sleep -Seconds 1
-        $attempts++
-    }
+# SYSVOL replication can lag behind the AD object New-GPO just created.
+$gptIniPath = "$sysvolRoot\GPT.INI"
+$attempts = 0
+while (-not (Test-Path -Path $gptIniPath) -and $attempts -lt 30) {
+    Start-Sleep -Seconds 1
+    $attempts++
+}
 
-    if (Test-Path -Path $gptIniPath) {
-        $ini = Get-JsonGPOIniFile -Path $gptIniPath
-        $ini['General']['Version'] = $newVersion
-        Write-JsonGPOIniFile -Path $gptIniPath -Sections $ini
-    }
+if (Test-Path -Path $gptIniPath) {
+    # A standard GPT.ini carries only [General] Version=N, the same packed number as the AD
+    # versionNumber. New-GPO leaves a cosmetic displayName line that GPMC ignores; write the
+    # file clean so it matches GPMC and the SYSVOL version stays in lockstep with AD.
+    Write-JsonGPOIniFile -Path $gptIniPath -Sections ([ordered]@{ General = [ordered]@{ Version = $newVersion } })
 }
 
 $gpo = Get-GPO -Guid $gpo.Id @serverParams -ErrorAction Stop
