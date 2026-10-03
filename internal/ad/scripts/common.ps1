@@ -361,6 +361,14 @@ function Write-ADLCChange([string]$Source, [string]$Message) {
     Write-ADLCEvent -Source $Source -EntryType ([System.Diagnostics.EventLogEntryType]::Information) -Message $entry -EventId 1000
 }
 
+# Logs a completed read/query together with the script input. Called automatically after a
+# non-mutating operation body succeeds. Uses a distinct event ID (1002) so read traffic can
+# be filtered apart from changes (1000) and failures (1001).
+function Write-ADLCRead([string]$Source, [string]$Message) {
+    $entry = "$Message`nInput: $(Get-ADLCInputText)"
+    Write-ADLCEvent -Source $Source -EntryType ([System.Diagnostics.EventLogEntryType]::Information) -Message $entry -EventId 1002
+}
+
 # Logs a failed operation with the script input and the error message. Called automatically
 # when an operation body throws.
 function Write-ADLCFailure([string]$Source, [System.Management.Automation.ErrorRecord]$ErrorRecord) {

@@ -49,14 +49,17 @@ func buildScript(c *client.Client, payload map[string]any, names ...string) (str
 
 	// Every operation runs inside a try/catch keyed to an event-log source named after the
 	// operation script (without the .ps1 extension). Failures are logged to the
-	// 'terraform-provider-adlc' event log on the target host and re-thrown; mutating
-	// operations also log a change on success. Helpers live in common.ps1.
+	// 'terraform-provider-adlc' event log on the target host and re-thrown. Every operation
+	// also logs on success: mutating operations as a change (event 1000), read-only
+	// operations as a read (event 1002). Helpers live in common.ps1.
 	body := names[len(names)-1]
 	source := strings.TrimSuffix(body, ".ps1")
 	fmt.Fprintf(&builder, "$scriptSource = '%s'\ntry {\n", source)
 	builder.WriteString(script(body))
 	if isMutatingScript(source) {
 		fmt.Fprintf(&builder, "\nWrite-ADLCChange -Source $scriptSource -Message \"operation '%s' completed successfully\"\n", source)
+	} else {
+		fmt.Fprintf(&builder, "\nWrite-ADLCRead -Source $scriptSource -Message \"operation '%s' completed successfully\"\n", source)
 	}
 	builder.WriteString("}\ncatch {\n    Write-ADLCFailure -Source $scriptSource -ErrorRecord $_\n    throw\n}\n")
 
@@ -64,8 +67,8 @@ func buildScript(c *client.Client, payload map[string]any, names ...string) (str
 }
 
 // isMutatingScript reports whether an operation script changes AD, based on its name
-// suffix. Mutating operations log a change entry on success; read-only operations only log
-// on failure.
+// suffix. Mutating operations log a change entry on success; read-only operations log a
+// read entry.
 func isMutatingScript(source string) bool {
 	for _, suffix := range []string{"_ensure", "_update", "_delete", "_set"} {
 		if strings.HasSuffix(source, suffix) {

@@ -10,7 +10,6 @@ type Config struct {
 	Password            string
 	Insecure            bool
 	PowerShellPath      string
-	GPOPowerShellPath   string
 	DomainController    string
 	Timeout             time.Duration
 	WinRMUseTLS         bool

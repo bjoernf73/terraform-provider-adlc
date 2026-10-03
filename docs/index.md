@@ -72,7 +72,6 @@ managing secrets, related to this provider of course.
 ### Optional
 
 - `domain_controller` (String) Optional domain controller to pass to Active Directory cmdlets via `-Server`.
-- `gpo_powershell_path` (String) PowerShell executable used only for Group Policy operations (`adlc_backup_gpo`, `adlc_json_gpo`, `adlc_gpo_links`, `adlc_gpo_permission`, `adlc_gpo_security_filter`, `adlc_gpo_wmi_filter` and the `adlc_gpo` data source). The `GroupPolicy` module is not native to PowerShell 7; under `pwsh` it loads through the Windows PowerShell Compatibility layer, which prints warnings and returns deserialized objects. These operations therefore default to Windows PowerShell (`powershell.exe`), where the module is native. Set this to `pwsh` to force the compatibility layer instead. Defaults to `powershell.exe`.
 - `insecure` (Boolean) Skip certificate validation for WinRM TLS or host key validation for SSH.
 - `password` (String, Sensitive) Remote account password. Used by WinRM and optional for SSH.
 - `port` (Number) Remote port. Defaults to 5985 or 5986 for WinRM, and 22 for SSH.
