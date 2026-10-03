@@ -41,6 +41,7 @@ func liveADClient(t *testing.T) *client.Client {
 		Password:           os.Getenv("ADLC_PASSWORD"),
 		Insecure:           os.Getenv("ADLC_INSECURE") == "true",
 		PowerShellPath:     "pwsh",
+		GPOPowerShellPath:  "powershell.exe",
 		Timeout:            60 * time.Second,
 		WinRMUseTLS:        os.Getenv("ADLC_WINRM_USE_TLS") == "true",
 		WinRMAuth:          auth,

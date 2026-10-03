@@ -64,7 +64,7 @@ func EnsureJsonGPO(ctx context.Context, c *client.Client, input JsonGPOInput) (*
 func ReadJsonGPO(ctx context.Context, c *client.Client, guid string) (*JsonGPO, error) {
 	script, err := buildScript(c, map[string]any{
 		"guid": guid,
-	}, commonScript, backupGPOCommon, backupGPORead)
+	}, commonScript, backupGPORead)
 	if err != nil {
 		return nil, err
 	}
