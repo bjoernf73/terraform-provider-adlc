@@ -1,0 +1,20 @@
+{
+    "Name": "System-####System####-common",
+    "Linktargets": null,
+    "ComputerSettingsEnabled": true,
+    "UserSettingsEnabled": false,
+    "WMIFilter": null,
+    "Permissions": null,
+    "PolicySettings": {
+        "RegistrySettings": [
+            {
+                "Target": "Machine",
+                "KeyName": "SOFTWARE\\Policies\\ShowCase\\####System####",
+                "ValueType": "REG_SZ",
+                "ValueName": "DomainNetBIOS",
+                "ValueData": "####DomainNB####",
+                "ObjectType": "RegistrySetting"
+            }
+        ]
+    }
+}
