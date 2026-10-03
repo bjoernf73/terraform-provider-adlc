@@ -183,17 +183,19 @@ if ((-not $computerEnabled) -and $userEnabled) { $flags = 2 }
 if ((-not $computerEnabled) -and (-not $userEnabled)) { $flags = 3 }
 Set-ADObject -Identity $gpcObject.DistinguishedName -Replace @{ flags = $flags } @serverParams -ErrorAction Stop
 
-# Bump versionNumber in both AD and SYSVOL's GPT.INI, so GPMC and gpupdate see the change.
-# versionNumber packs two counters: Version = userVersion * 65536 + computerVersion, so the
-# low 16 bits are the computer version and the high 16 bits the user version. +1 raises the
-# computer version, +65536 the user version.
-[uint32]$incrementBy = 0
-if ($machineChanged) { $incrementBy += 1 }
-if ($userChanged) { $incrementBy += 65536 }
-
+# Bump the GPO version so GPMC and gpupdate see the change. versionNumber packs two 16-bit
+# counters as Version = userVersion * 65536 + computerVersion: read the current pair from AD,
+# raise the side(s) whose settings changed by 1, then repack.
 $current = Get-ADObject -Identity $gpcObject.DistinguishedName -Properties versionNumber @serverParams -ErrorAction Stop
-$newVersion = [uint32]$current.versionNumber + $incrementBy
-if ($incrementBy -gt 0) {
+[int64]$currentVersion = [int64]$current.versionNumber
+[int64]$computerVersion = $currentVersion % 65536
+[int64]$userVersion = [math]::Floor($currentVersion / 65536)
+
+if ($machineChanged) { $computerVersion += 1 }
+if ($userChanged) { $userVersion += 1 }
+
+$newVersion = ($userVersion * 65536) + $computerVersion
+if ($machineChanged -or $userChanged) {
     Set-ADObject -Identity $gpcObject.DistinguishedName -Replace @{ versionNumber = $newVersion } @serverParams -ErrorAction Stop
 }
 
