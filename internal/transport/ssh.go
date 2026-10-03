@@ -32,7 +32,42 @@ func NewSSHRunner(cfg config.Config) (Runner, error) {
 	return &sshRunner{config: cfg}, nil
 }
 
+// sshMaxAttempts bounds how many times Run will re-establish the connection on a
+// transport-level failure. Win32-OpenSSH intermittently tears the stdin pipe down mid-command
+// ("The pipe has been ended"), which surfaces here as a dial error or an abnormal termination
+// rather than a clean exit status; a fresh connection almost always succeeds.
+const sshMaxAttempts = 3
+
 func (r *sshRunner) Run(ctx context.Context, command string, stdin string) (Result, error) {
+	var result Result
+	var err error
+
+	backoff := 500 * time.Millisecond
+	for attempt := 1; attempt <= sshMaxAttempts; attempt++ {
+		result, err = r.runOnce(ctx, command, stdin)
+		if err == nil {
+			// A clean exit, including a non-zero one, comes back as (result, nil) with
+			// ExitCode set: that is a real remote result, not a transport fault, so never retry it.
+			return result, nil
+		}
+
+		if attempt == sshMaxAttempts {
+			break
+		}
+
+		// Space out retries, but abandon them immediately if the caller gave up.
+		select {
+		case <-ctx.Done():
+			return result, err
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+	}
+
+	return result, err
+}
+
+func (r *sshRunner) runOnce(ctx context.Context, command string, stdin string) (Result, error) {
 	sshConfig, err := r.buildClientConfig()
 	if err != nil {
 		return Result{}, err
