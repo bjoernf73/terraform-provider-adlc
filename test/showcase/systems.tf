@@ -7,7 +7,6 @@
 locals {
   systems = [
     "CRM", "ERP", "HRM", "FIN", "LOGI", "MES", "SCM", "BISY",
-    "DWH", "IAM", "PKI", "VPN", "WEB", "APIGW", "DATA",
   ]
 }
 
