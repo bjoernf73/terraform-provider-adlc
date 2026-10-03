@@ -58,6 +58,10 @@ resource "adlc_json_gpo" "common" {
     DomainNB = var.domain_netbios
     System   = var.system
   }
+
+  # The GPO resolves ShowCase-<system>-GroupN principals by name on import, so the groups
+  # must already exist.
+  depends_on = [adlc_group.group]
 }
 
 resource "adlc_gpo_links" "servers" {

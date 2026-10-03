@@ -1,20 +1,60 @@
 {
-    "Name": "System-####System####-common",
-    "Linktargets": null,
-    "ComputerSettingsEnabled": true,
-    "UserSettingsEnabled": false,
-    "WMIFilter": null,
-    "Permissions": null,
-    "PolicySettings": {
-        "RegistrySettings": [
-            {
-                "Target": "Machine",
-                "KeyName": "SOFTWARE\\Policies\\ShowCase\\####System####",
-                "ValueType": "REG_SZ",
-                "ValueName": "DomainNetBIOS",
-                "ValueData": "####DomainNB####",
-                "ObjectType": "RegistrySetting"
-            }
-        ]
-    }
+  "Name": "System-SYS-Common",
+  "Linktargets": null,
+  "ComputerSettingsEnabled": false,
+  "UserSettingsEnabled": false,
+  "WMIFilter": null,
+  "Permissions": "O:DAG:DAD:PAI(A;CIIO;CCDCLCSWRPWPDTLOSDRCWDWO;;;CO)(A;CI;LCRPLORC;;;ED)(A;CI;LCRPLORC;;;AU)(A;CI;CCDCLCSWRPWPDTLOSDRCWDWO;;;SY)(A;CI;CCDCLCSWRPWPDTLOSDRCWDWO;;;DA)(A;CI;CCDCLCSWRPWPDTLOSDRCWDWO;;;####Replace[DOMAIN\\Enterprise Admins])(OA;CI;CR;edacfd8f-ffb3-11d1-b41d-00a0c968f939;;AU)",
+  "PolicySettings": {
+    "RegistrySettings": null,
+    "AuditSettings": null,
+    "SecurityTemplate": [
+      "[Unicode]",
+      "Unicode=yes",
+      "[Version]",
+      "signature=\"$CHICAGO$\"",
+      "Revision=1",
+      "[Group Membership]",
+      "*S-1-5-32-544__Memberof =",
+      "*S-1-5-32-544__Members = *####Replace[DOMAIN\\ShowCase-####System####-Group1]"
+    ],
+    "FolderRedirection": null,
+    "FolderRedirection1": null,
+    "GPOComments": null,
+    "MachineComments": null,
+    "UserComments": null,
+    "Scripts": [
+      {
+        "Target": "Machine",
+        "ScriptsIni": null,
+        "PSScriptsIni": null,
+        "ScriptFiles": null,
+        "ObjectType": "Scripts"
+      }
+    ],
+    "GroupPolicyPreferences": [
+      {
+        "Target": "Machine",
+        "Type": "Groups",
+        "XmlFileName": "Groups.xml",
+        "XmlContent": [
+          "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+          "<Groups clsid=\"{3125E937-EB16-4b4c-9934-544FC6D24D26}\">",
+          "    <Group clsid=\"{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}\" name=\"Remote Desktop Users (built-in)\" image=\"2\" changed=\"2026-10-03 15:25:27\" uid=\"{1D405D28-722C-491D-A37B-D56D94A062B4}\">",
+          "        <Properties action=\"U\" newName=\"\" description=\"\" deleteAllUsers=\"0\" deleteAllGroups=\"0\" removeAccounts=\"0\" groupSid=\"S-1-5-32-555\" groupName=\"Remote Desktop Users (built-in)\">",
+          "            <Members>",
+          "                <Member name=\"####DomainNB####\\ShowCase-####System####-Group2\" action=\"ADD\" sid=\"####Replace[DOMAIN\\ShowCase-####System####-Group2]\" />",
+          "            </Members>",
+          "        </Properties>",
+          "    </Group>",
+          "</Groups>"
+        ],
+        "ObjectType": "GroupPolicyPreference"
+      }
+    ],
+    "ObjectType": "PolicySettings"
+  },
+  "gPCMachineExtensionNames": "[{00000000-0000-0000-0000-000000000000}{79F92669-4224-476C-9C5C-6EFB4D87DF4A}][{17D89FEC-5C44-4972-B12D-241CAEF74509}{79F92669-4224-476C-9C5C-6EFB4D87DF4A}][{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]",
+  "gPCUserExtensionNames": null,
+  "ObjectType": "GroupPolicy"
 }
