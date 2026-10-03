@@ -43,6 +43,10 @@ function Get-BackupGPOResult($Gpo) {
         }
     }
 
+    # The module's SysvolVersion can read stale right after New-GPO bumps GPT.ini; parse the
+    # GPT.ini watermark directly so the ensure result matches the LDAP read field-for-field.
+    $sysvolVersion = Get-ADLCGptIniVersion ([string]$Gpo.Path)
+
     return [pscustomobject]@{
         exists                  = $true
         guid                    = $Gpo.Id.ToString()
@@ -54,8 +58,8 @@ function Get-BackupGPOResult($Gpo) {
         domain                  = $Gpo.DomainName
         status                  = $Gpo.GpoStatus.ToString()
         computer_ad_version     = [int64]$Gpo.Computer.DSVersion
-        computer_sysvol_version = [int64]$Gpo.Computer.SysvolVersion
+        computer_sysvol_version = ($sysvolVersion -band 0xFFFF)
         user_ad_version         = [int64]$Gpo.User.DSVersion
-        user_sysvol_version     = [int64]$Gpo.User.SysvolVersion
+        user_sysvol_version     = (($sysvolVersion -shr 16) -band 0xFFFF)
     }
 }

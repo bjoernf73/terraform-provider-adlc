@@ -150,6 +150,28 @@ function ConvertFrom-DNToDnsName([string]$DistinguishedName) {
     return ($labels -join '.')
 }
 
+# Reads the packed Version watermark from a GPO's SYSVOL GPT.ini. $SysvolPath is the
+# gPCFileSysPath UNC (also exposed as a Gpo object's .Path). Returns 0 when the file or the
+# Version line is absent. The low word is the computer version, the high word the user version.
+function Get-ADLCGptIniVersion([string]$SysvolPath) {
+    if ([string]::IsNullOrWhiteSpace($SysvolPath)) {
+        return [int64]0
+    }
+
+    $gptIni = Join-Path $SysvolPath 'GPT.ini'
+    if (-not (Test-Path -LiteralPath $gptIni)) {
+        return [int64]0
+    }
+
+    foreach ($line in [System.IO.File]::ReadAllLines($gptIni)) {
+        if ($line -match '^\s*Version\s*=\s*(\d+)') {
+            return [int64]$Matches[1]
+        }
+    }
+
+    return [int64]0
+}
+
 # Maps msDS-Behavior-Version to the ADDomainMode token the ActiveDirectory module reports, so
 # state carries the same value whichever read path produced it.
 function Convert-DomainModeFromBehaviorVersion($Version) {

@@ -27,22 +27,9 @@ $versionNumber = [int64](Get-ADLCString $entry 'versionNumber')
 $computerAdVersion = $versionNumber -band 0xFFFF
 $userAdVersion = ($versionNumber -shr 16) -band 0xFFFF
 
-$computerSysvolVersion = 0
-$userSysvolVersion = 0
-$sysvolPath = Get-ADLCString $entry 'gPCFileSysPath'
-if (-not [string]::IsNullOrWhiteSpace($sysvolPath)) {
-    $gptIni = Join-Path $sysvolPath 'GPT.ini'
-    if (Test-Path -LiteralPath $gptIni) {
-        foreach ($line in [System.IO.File]::ReadAllLines($gptIni)) {
-            if ($line -match '^\s*Version\s*=\s*(\d+)') {
-                $sysvolVersion = [int64]$Matches[1]
-                $computerSysvolVersion = $sysvolVersion -band 0xFFFF
-                $userSysvolVersion = ($sysvolVersion -shr 16) -band 0xFFFF
-                break
-            }
-        }
-    }
-}
+$sysvolVersion = Get-ADLCGptIniVersion (Get-ADLCString $entry 'gPCFileSysPath')
+$computerSysvolVersion = $sysvolVersion -band 0xFFFF
+$userSysvolVersion = ($sysvolVersion -shr 16) -band 0xFFFF
 
 # The flags attribute maps directly to the GpoStatus enum the GroupPolicy module reports.
 switch ([int](Get-ADLCString $entry 'flags')) {
