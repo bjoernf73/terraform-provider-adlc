@@ -29,18 +29,6 @@ try {
     Import-GPO @importParams @serverParams | Out-Null
 
     $gpo = Get-GPO -Name ([string]$payload.target_name) @serverParams -ErrorAction Stop
-
-    # Import-GPO bumps the AD versionNumber at once, but SYSVOL's GPT.ini can lag a few seconds
-    # behind. Wait until the on-disk Version matches before recording the watermark: a premature
-    # read stores a stale SYSVOL version that the next plan sees as out-of-band drift and
-    # "corrects" with a needless re-import, which bumps the version again. See backup_gpo.go.
-    $targetVersion = ([int64]$gpo.User.DSVersion -shl 16) -bor ([int64]$gpo.Computer.DSVersion)
-    $attempts = 0
-    while ((Get-ADLCGptIniVersion ([string]$gpo.Path)) -ne $targetVersion -and $attempts -lt 30) {
-        Start-Sleep -Seconds 1
-        $attempts++
-    }
-
     Get-BackupGPOResult -Gpo $gpo | ConvertTo-Json -Compress
 }
 finally {
