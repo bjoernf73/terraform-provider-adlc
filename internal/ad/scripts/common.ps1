@@ -135,6 +135,15 @@ function Get-ADLCString($Entry, [string]$Name) {
     return [string]$Entry.Attributes[$Name][0]
 }
 
+# Reads every value of a multi-valued string attribute as an array (empty when absent).
+function Get-ADLCStrings($Entry, [string]$Name) {
+    if ($null -eq $Entry -or -not $Entry.Attributes.Contains($Name)) {
+        return @()
+    }
+
+    return @($Entry.Attributes[$Name].GetValues([string]))
+}
+
 # Converts the DC= components of a distinguished name to a dotted DNS name.
 function ConvertFrom-DNToDnsName([string]$DistinguishedName) {
     $labels = @($DistinguishedName -split '(?<!\\),' | Where-Object { $_ -match '^\s*DC=' } | ForEach-Object { ($_ -replace '^\s*DC=', '').Trim() })

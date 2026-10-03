@@ -24,6 +24,7 @@ var moduleFreeOperations = map[string]bool{
 	"organizational_unit_read": true,
 	"group_read":               true,
 	"user_read":                true,
+	"computer_read":            true,
 }
 
 func script(name string) string {
