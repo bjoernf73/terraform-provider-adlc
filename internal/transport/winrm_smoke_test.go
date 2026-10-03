@@ -35,16 +35,17 @@ func TestWinRMSmoke(t *testing.T) {
 	}
 
 	cfg := config.Config{
-		Host:           host,
-		Port:           port,
-		Transport:      "winrm",
-		Username:       os.Getenv("ADLC_USERNAME"),
-		Password:       os.Getenv("ADLC_PASSWORD"),
-		Insecure:       true,
-		PowerShellPath: "pwsh",
-		Timeout:        30 * time.Second,
-		WinRMUseTLS:    os.Getenv("ADLC_WINRM_USE_TLS") == "true",
-		WinRMAuth:      auth,
+		Host:               host,
+		Port:               port,
+		Transport:          "winrm",
+		Username:           os.Getenv("ADLC_USERNAME"),
+		Password:           os.Getenv("ADLC_PASSWORD"),
+		Insecure:           true,
+		PowerShellPath:     "pwsh",
+		Timeout:            30 * time.Second,
+		WinRMUseTLS:        os.Getenv("ADLC_WINRM_USE_TLS") == "true",
+		WinRMAuth:          auth,
+		WinRMKerberosRealm: os.Getenv("ADLC_WINRM_KERBEROS_REALM"),
 	}
 
 	runner, err := NewWinRMRunner(cfg)

@@ -23,6 +23,14 @@ func isTransientScriptError(errText string) bool {
 	return strings.Contains(errText, "A local error has occurred")
 }
 
+// usesGroupPolicyModule reports whether a composed script loads the GroupPolicy module. That
+// module is not native to PowerShell 7; under pwsh it loads through the Windows PowerShell
+// Compatibility layer, which warns and returns deserialized objects. Such scripts run under
+// the GPO PowerShell path (Windows PowerShell) instead, where the module is native.
+func usesGroupPolicyModule(script string) bool {
+	return strings.Contains(script, "Import-Module GroupPolicy")
+}
+
 type Client struct {
 	config config.Config
 	runner transport.Runner
@@ -82,7 +90,12 @@ func (c *Client) RunPowerShell(ctx context.Context, script string) (transport.Re
 }
 
 func (c *Client) runPowerShellOnce(ctx context.Context, script string) (transport.Result, error) {
-	command, err := powershell.BuildCommand(c.config.PowerShellPath)
+	powerShellPath := c.config.PowerShellPath
+	if usesGroupPolicyModule(script) && strings.TrimSpace(c.config.GPOPowerShellPath) != "" {
+		powerShellPath = c.config.GPOPowerShellPath
+	}
+
+	command, err := powershell.BuildCommand(powerShellPath)
 	if err != nil {
 		return transport.Result{}, err
 	}

@@ -48,6 +48,44 @@ committed file is the portable one.)
   the gzipped script off via a temp file the command reads then deletes. Verify over WinRM AND
   SSH before re-adding any opt-in setting.
 
+## CORRECTION (2026-10-03, verified in-domain over WinRM/Kerberos to the DC)
+The "stdin returns empty under powershell.exe over WinRM" hypothesis above is WRONG for a real
+in-domain WinRM connection. Reproduced with `internal/powershell/stdin_winrm_repro_test.go`
+against dc1-s13-utv.utv.local (WinRM 5985, Kerberos):
+- `powershell.exe` + the CURRENT `[Console]::In.ReadToEnd()` bootstrap WORKS — returns the probe
+  JSON, exit 0, non-empty stdout. Edition reported `Desktop`.
+- No size issue either: a ~69 KB script round-trips fine under `powershell.exe`.
+- The REAL defect is the compat layer, now measured directly with `Get-GPO`:
+  - pwsh (compat layer): `.Computer.DSVersion` / `.User.DSVersion` come back NULL (lossy
+    deserialization) + the "WinPSCompatSession ... deserialized objects" warning.
+  - powershell.exe (native): the same props return correct values (e.g. computer=26, user=4).
+- So routing GPO ops to `powershell.exe` over WinRM is viable AND preferable. The v0.0.24
+  failure was NOT seen on a dev machine at all - it surfaced on a GitLab Linux CI runner that
+  spins up a container and drives the suite from there. The Linux->Windows transport path (and/or
+  runner<->server network) differs from an in-domain Windows client; that is the suspect, not
+  WinRM in general.
+- STILL TO VERIFY before re-adding `gpo_powershell_path`: `powershell.exe` stdin over the SSH
+  transport (OpenSSH subsystem), where the original emptiness may genuinely occur. The candidate
+  `[Console]::OpenStandardInput()` bootstrap also works for both editions over WinRM and is the
+  likely cross-transport fix — test it over SSH next.
+## RESOLVED (2026-10-03): gpo_powershell_path re-added, default powershell.exe (v0.0.26)
+- SSH verified too: `powershell.exe` + the CURRENT `[Console]::In.ReadToEnd()` bootstrap reads
+  stdin fine over OpenSSH on this host (same probe JSON, exit 0). So the stdin bug reproduces on
+  NEITHER WinRM NOR SSH here; no bootstrap change was made (current bootstrap left as-is).
+- Re-added `gpo_powershell_path` (config + provider schema + `usesGroupPolicyModule` routing in
+  `internal/client/client.go`), default `powershell.exe`. Kept the v0.0.25 read-event (1002)
+  logging - only the GPO-routing pieces were restored, not reverted wholesale.
+- Full-stack proof in `internal/client/grouppolicy_routing_live_test.go`: via `RunPowerShellJSON`,
+  powershell.exe => edition Desktop with non-null nested versions; pwsh => edition Core with
+  NULL `.Computer.DSVersion` / `.User.DSVersion`. No "remote PowerShell returned no JSON output".
+- The v0.0.24 failure was observed on a GitLab Linux CI runner (container-based), not on an
+  in-domain Windows client - which cannot reproduce it on either WinRM or SSH. Suspected cause
+  is the Linux-container->Windows transport path or runner<->server connectivity. A plain Linux
+  runner (no container) re-tests the suite on push; v0.0.26 is the re-validation.
+- Lesson: validate transport-level claims on the ACTUAL failing environment (the CI runner)
+  before shipping a revert; an in-domain host can hide an environment-specific transport bug.
+
+
 ## Event logging (diagnostic aid)
 - Every op is wrapped in a try/catch (`internal/ad/scripts.go` `buildScript`). Failures ->
   `Write-ADLCFailure` (event 1001). Mutating success -> `Write-ADLCChange` (1000). As of
