@@ -230,7 +230,13 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, userState(plan, user))...)
+	state := userState(plan, user)
+	// New-ADUser always creates the account disabled, because no password exists yet
+	// (see user_ensure.ps1). Honor the planned `enabled` value so the applied state matches
+	// the plan — Terraform rejects a known plan value that changes during apply. A password
+	// resource (or a later apply, once a password exists) reconciles the account for real.
+	state.Enabled = plan.Enabled
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
