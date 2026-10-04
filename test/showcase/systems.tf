@@ -6,7 +6,7 @@
 
 locals {
   systems = [
-    "CRM", "ERP", "HRM", "FIN", "LOGI", "MES", "SCM", "BISY",
+    "CRM", "ERP", "HRM", # "FIN", "LOGI", "MES", "SCM", "BISY",
   ]
 }
 
