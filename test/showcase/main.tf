@@ -140,7 +140,7 @@ resource "adlc_group" "right_dc_ura_sesystemprofileprivilege" {
   scope    = "Global"
 }
 
- resource "adlc_group" "right_dc_ura_seshutdownprivilege" {
+resource "adlc_group" "right_dc_ura_seshutdownprivilege" {
   name     = "Right-DC-URA-SeShutdownPrivilege"
   path     = adlc_organizational_unit.child["Groups"].path
   category = "Security"
