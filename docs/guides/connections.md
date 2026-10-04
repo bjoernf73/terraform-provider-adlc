@@ -180,6 +180,38 @@ command that never returns — a stuck session, for example — fails after the 
 instead of blocking the apply indefinitely. Group Policy imports over SSH are the slowest
 operations; raise `timeout_seconds` if you import large GPOs against a loaded host.
 
+## Scaling to large configurations
+
+Every operation is a separate remote PowerShell process: the provider opens a shell,
+streams the script on stdin, reads the result, and closes the shell. Terraform runs these
+in parallel — ten at a time by default — so a large configuration, where hundreds of
+objects are refreshed on every `plan`, opens hundreds of short-lived WinRM (or SSH) shells
+against a single domain controller.
+
+The usual symptom of overload is a sporadic `dial tcp ...:5986: i/o timeout` (or a
+truncated-stdin error) on one resource while the rest succeed, after which a re-run or a
+serial apply works. That pattern is **concurrency contention, not bandwidth**: the payloads
+are small (a few KB each, gzipped), but the number of concurrent shells and the domain
+controller's WinRM limits are the real ceiling.
+
+If you hit this on a large directory, in order of effort:
+
+- **Lower Terraform's parallelism.** `terraform apply -parallelism=3` (or even `1`) is the
+  single biggest lever and needs no configuration change. It trades wall-clock time for a
+  far lower concurrent-shell count.
+- **Raise `timeout_seconds`.** A busy controller answers more slowly under load;
+  `timeout_seconds = 120` gives each request room before it is retried.
+- **Raise the host's WinRM limits.** Inspect them with `winrm get winrm/config`; the ones
+  that bite first are `MaxShellsPerUser`, `MaxConcurrentOperationsPerUser` and
+  `MaxMemoryPerShellMB`. The defaults are easily exhausted by parallel applies.
+
+The provider also retries transient transport failures automatically: network timeouts,
+connection resets, dropped connections, and an undelivered script payload (empty stdin) are
+retried up to three times with backoff, the same way a stale-connection `401` is. A clean
+non-zero exit — a genuine Active Directory error — is never retried. Retries absorb the
+occasional blip but are not a substitute for lowering parallelism on a genuinely overloaded
+host.
+
 ## Troubleshooting
 
 The provider writes diagnostic logs through Terraform's logger, not to the Windows event
