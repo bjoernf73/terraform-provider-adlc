@@ -3,7 +3,9 @@ package transport
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,16 +16,27 @@ import (
 	"github.com/bjoernf73/terraform-provider-adlc/internal/config"
 )
 
+// emptyStdinExitCode and emptyStdinMarker mirror the sentinel the PowerShell bootstrap emits
+// when it receives no script on stdin (see internal/powershell command.go, EmptyStdinExitCode
+// /EmptyStdinMarker). They are duplicated here rather than imported to avoid a
+// transport -> powershell dependency, which would form a test import cycle.
+const (
+	emptyStdinExitCode = 97
+	emptyStdinMarker   = "ADLC_EMPTY_STDIN"
+)
+
 type winrmRunner struct {
 	newClient func() (*winrm.Client, error)
 	endpoint  string
 	auth      string
 }
 
-// winrmAuthAttempts covers transient 401s: NTLM authenticates a connection, and the
-// server closes connections between operations, so a stale pooled connection can be
-// rejected. A 401 means the script never ran, so retrying is safe.
-const winrmAuthAttempts = 3
+// winrmMaxAttempts bounds how many times Run re-issues a request on a transient fault. It
+// covers 401s (NTLM authenticates a connection and the server closes connections between
+// operations, so a stale pooled connection is rejected), network timeouts/resets, and an
+// empty stdin payload (a truncated WinRM Send leaves the remote bootstrap with no script).
+// All of these mean the script either never ran or ran empty, so retrying is safe.
+const winrmMaxAttempts = 3
 
 func NewWinRMRunner(cfg config.Config) (Runner, error) {
 	endpoint := winrm.NewEndpoint(
@@ -160,15 +173,24 @@ func (r *winrmRunner) Run(ctx context.Context, command string, stdin string) (Re
 	var lastResult Result
 	var lastErr error
 
-	for attempt := 1; attempt <= winrmAuthAttempts; attempt++ {
+	for attempt := 1; attempt <= winrmMaxAttempts; attempt++ {
 		result, err := r.run(ctx, command, stdin)
-		if err == nil || !isAuthFailure(err) {
+
+		// Success is a clean run whose stdin actually arrived; a non-zero exit from the real
+		// script also comes back here with err == nil and is returned as-is.
+		if err == nil && !isEmptyStdinResult(result) {
+			return result, nil
+		}
+
+		// Only transient faults are worth retrying: a stale-connection 401, a network
+		// timeout/reset, or an empty stdin payload. Anything else is a real failure.
+		if !isAuthFailure(err) && !isTransientError(err) && !isEmptyStdinResult(result) {
 			return result, err
 		}
 
 		lastResult, lastErr = result, err
 
-		if attempt == winrmAuthAttempts {
+		if attempt == winrmMaxAttempts {
 			break
 		}
 
@@ -179,7 +201,13 @@ func (r *winrmRunner) Run(ctx context.Context, command string, stdin string) (Re
 		}
 	}
 
-	return lastResult, fmt.Errorf("winrm authentication failed against %s using %s auth after %d attempts: %w", r.endpoint, r.auth, winrmAuthAttempts, lastErr)
+	if lastErr == nil && isEmptyStdinResult(lastResult) {
+		return lastResult, fmt.Errorf("winrm request to %s returned an empty script payload (stdin was not delivered) after %d attempts", r.endpoint, winrmMaxAttempts)
+	}
+	if isAuthFailure(lastErr) {
+		return lastResult, fmt.Errorf("winrm authentication failed against %s using %s auth after %d attempts: %w", r.endpoint, r.auth, winrmMaxAttempts, lastErr)
+	}
+	return lastResult, fmt.Errorf("winrm request to %s failed after %d attempts: %w", r.endpoint, winrmMaxAttempts, lastErr)
 }
 
 func (r *winrmRunner) run(ctx context.Context, command string, stdin string) (Result, error) {
@@ -200,16 +228,53 @@ func (r *winrmRunner) run(ctx context.Context, command string, stdin string) (Re
 	}
 
 	if err != nil {
-		if isAuthFailure(err) {
-			return result, err
-		}
-
-		return result, fmt.Errorf("winrm request to %s failed: %w", r.endpoint, err)
+		// Return the raw error; Run adds the endpoint and attempt context, and classifies
+		// it for retry. Double-wrapping here would nest "winrm request to ..." twice.
+		return result, err
 	}
 
 	return result, nil
 }
 
+// isAuthFailure reports a 401, which means the (possibly stale pooled) connection was
+// rejected before the script ran, so the request can be retried safely.
 func isAuthFailure(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "401")
+}
+
+// isTransientError reports a network-level fault (timeout, reset, dropped connection) where
+// the request likely never completed, so retrying is safe for idempotent remote scripts.
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+
+	msg := err.Error()
+	for _, substr := range []string{
+		"i/o timeout",
+		"connection reset",
+		"connection refused",
+		"broken pipe",
+		"TLS handshake timeout",
+		"EOF",
+	} {
+		if strings.Contains(msg, substr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isEmptyStdinResult reports that the remote bootstrap received no script on stdin (a
+// truncated or undelivered WinRM Send), identified by the sentinel exit code and marker the
+// bootstrap emits. Such a run never executed the real script, so it is safe to retry.
+func isEmptyStdinResult(result Result) bool {
+	return result.ExitCode == emptyStdinExitCode ||
+		strings.Contains(result.Stderr, emptyStdinMarker)
 }

@@ -43,9 +43,19 @@ func EncodeScript(script string) (string, error) {
 	return base64.StdEncoding.EncodeToString(compressed.Bytes()), nil
 }
 
+// EmptyStdinExitCode is the exit code the bootstrap uses when no script arrives on stdin
+// (a truncated or undelivered WinRM Send). It lets the transport distinguish an empty
+// payload from a genuine script failure and retry it. EmptyStdinMarker is written to stderr
+// alongside it. Both must stay in sync with the literals in stdinBootstrap.
+const (
+	EmptyStdinExitCode = 97
+	EmptyStdinMarker   = "ADLC_EMPTY_STDIN"
+)
+
 const stdinBootstrap = `$ErrorActionPreference='Stop';` +
 	`if($null -ne $PSStyle){$PSStyle.OutputRendering='PlainText'};` +
 	`$encoded=[Console]::In.ReadToEnd();` +
+	`if([string]::IsNullOrWhiteSpace($encoded)){[Console]::Error.Write('ADLC_EMPTY_STDIN');exit 97};` +
 	`$bytes=[System.Convert]::FromBase64String($encoded.Trim());` +
 	`$stream=New-Object System.IO.MemoryStream(,$bytes);` +
 	`$gzip=New-Object System.IO.Compression.GZipStream($stream,[System.IO.Compression.CompressionMode]::Decompress);` +

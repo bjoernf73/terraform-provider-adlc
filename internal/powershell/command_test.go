@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -75,6 +76,17 @@ func TestBootstrapReadsStdin(t *testing.T) {
 
 	if bootstrap := string(utf16.Decode(codeUnits)); !strings.Contains(bootstrap, "[Console]::In.ReadToEnd()") {
 		t.Fatalf("bootstrap does not read stdin: %s", bootstrap)
+	}
+}
+
+// TestBootstrapEmptyStdinGuard checks the bootstrap short-circuits with the exported sentinel
+// when stdin is empty, so the transport can detect and retry a truncated/undelivered payload.
+func TestBootstrapEmptyStdinGuard(t *testing.T) {
+	if !strings.Contains(stdinBootstrap, EmptyStdinMarker) {
+		t.Fatalf("bootstrap does not emit EmptyStdinMarker %q", EmptyStdinMarker)
+	}
+	if !strings.Contains(stdinBootstrap, "exit "+strconv.Itoa(EmptyStdinExitCode)) {
+		t.Fatalf("bootstrap does not exit with EmptyStdinExitCode %d", EmptyStdinExitCode)
 	}
 }
 

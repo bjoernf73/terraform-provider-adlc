@@ -49,7 +49,12 @@ func (r *sshRunner) Run(ctx context.Context, command string, stdin string) (Resu
 		if err == nil {
 			// A clean exit, including a non-zero one, comes back as (result, nil) with
 			// ExitCode set: that is a real remote result, not a transport fault, so never retry it.
-			return result, nil
+			// The exception is an empty stdin payload (the script body never arrived), which the
+			// bootstrap reports with a sentinel exit code; treat that like a transport fault.
+			if !isEmptyStdinResult(result) {
+				return result, nil
+			}
+			err = fmt.Errorf("ssh command received an empty script payload (stdin was not delivered)")
 		}
 
 		if attempt == sshMaxAttempts {
