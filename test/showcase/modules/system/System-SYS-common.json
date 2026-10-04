@@ -1,12 +1,29 @@
 {
-  "Name": "System-SYS-Common",
+  "Name": "System-SYS-common",
   "Linktargets": null,
   "ComputerSettingsEnabled": true,
-  "UserSettingsEnabled": false,
+  "UserSettingsEnabled": true,
   "WMIFilter": null,
   "Permissions": "O:DAG:DAD:PAI(A;CIIO;CCDCLCSWRPWPDTLOSDRCWDWO;;;CO)(A;CI;LCRPLORC;;;ED)(A;CI;LCRPLORC;;;AU)(A;CI;CCDCLCSWRPWPDTLOSDRCWDWO;;;SY)(A;CI;CCDCLCSWRPWPDTLOSDRCWDWO;;;DA)(A;CI;CCDCLCSWRPWPDTLOSDRCWDWO;;;####Replace[DOMAIN\\Enterprise Admins])(OA;CI;CR;edacfd8f-ffb3-11d1-b41d-00a0c968f939;;AU)",
   "PolicySettings": {
-    "RegistrySettings": null,
+    "RegistrySettings": [
+      {
+        "Target": "User",
+        "KeyName": "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer",
+        "ValueType": "REG_DWORD",
+        "ValueName": "NoDesktopCleanupWizard",
+        "ValueData": "1",
+        "ObjectType": "RegistrySetting"
+      },
+      {
+        "Target": "User",
+        "KeyName": "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer",
+        "ValueType": "REG_DWORD",
+        "ValueName": "NoInternetIcon",
+        "ValueData": "1",
+        "ObjectType": "RegistrySetting"
+      }
+    ],
     "AuditSettings": null,
     "SecurityTemplate": [
       "[Unicode]",
@@ -22,10 +39,30 @@
     "FolderRedirection1": null,
     "GPOComments": null,
     "MachineComments": null,
-    "UserComments": null,
+    "UserComments": [
+      "<?xml version='1.0' encoding='utf-8'?>",
+      "<policyComments xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" revision=\"1.0\" schemaVersion=\"1.0\" xmlns=\"http://www.microsoft.com/GroupPolicy/CommentDefinitions\">",
+      "  <policyNamespaces>",
+      "    <using prefix=\"ns0\" namespace=\"Microsoft.Policies.WindowsDesktop\"></using>",
+      "  </policyNamespaces>",
+      "  <comments>",
+      "    <admTemplate></admTemplate>",
+      "  </comments>",
+      "  <resources minRequiredRevision=\"1.0\">",
+      "    <stringTable></stringTable>",
+      "  </resources>",
+      "</policyComments>"
+    ],
     "Scripts": [
       {
         "Target": "Machine",
+        "ScriptsIni": {},
+        "PSScriptsIni": {},
+        "ScriptFiles": null,
+        "ObjectType": "Scripts"
+      },
+      {
+        "Target": "User",
         "ScriptsIni": null,
         "PSScriptsIni": null,
         "ScriptFiles": null,
@@ -55,6 +92,6 @@
     "ObjectType": "PolicySettings"
   },
   "gPCMachineExtensionNames": "[{00000000-0000-0000-0000-000000000000}{79F92669-4224-476C-9C5C-6EFB4D87DF4A}][{17D89FEC-5C44-4972-B12D-241CAEF74509}{79F92669-4224-476C-9C5C-6EFB4D87DF4A}][{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]",
-  "gPCUserExtensionNames": null,
+  "gPCUserExtensionNames": "[{35378EAC-683F-11D2-A89A-00C04FBBCFA2}{D02B1F73-3407-48AE-BA88-E8213C6761F1}]",
   "ObjectType": "GroupPolicy"
 }
