@@ -56,10 +56,8 @@ type backupGPOResourceModel struct {
 
 	// Version at the time of our last Import-GPO, used by ModifyPlan to detect edits
 	// made outside Terraform since; Read() must never overwrite these, see ModifyPlan.
-	ComputerADVersion     types.Int64 `tfsdk:"computer_ad_version"`
-	ComputerSysvolVersion types.Int64 `tfsdk:"computer_sysvol_version"`
-	UserADVersion         types.Int64 `tfsdk:"user_ad_version"`
-	UserSysvolVersion     types.Int64 `tfsdk:"user_sysvol_version"`
+	ComputerADVersion types.Int64 `tfsdk:"computer_ad_version"`
+	UserADVersion     types.Int64 `tfsdk:"user_ad_version"`
 }
 
 func (r *backupGPOResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -79,8 +77,9 @@ func (r *backupGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"`Import-GPO` re-imports settings in place when `target_name` already exists, keeping the GPO's GUID and existing " +
 			"links, so updates never delete and recreate the GPO.\n\n" +
 			"A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in " +
-			"GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the version " +
-			"recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match.",
+			"GPMC) is detected through its AD version counter instead: every plan re-checks it against the version " +
+			"recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match. " +
+			"`Import-GPO` owns the SYSVOL/GPT.ini version, so this resource tracks only the AD `versionNumber`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -175,23 +174,9 @@ func (r *backupGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
-			"computer_sysvol_version": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "Computer-side SYSVOL version at the time of the last apply. See `computer_ad_version`.",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
-			},
 			"user_ad_version": schema.Int64Attribute{
 				Computed:            true,
 				MarkdownDescription: "User-side directory version at the time of the last apply. See `computer_ad_version`.",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
-			},
-			"user_sysvol_version": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "User-side SYSVOL version at the time of the last apply. See `computer_ad_version`.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
@@ -307,16 +292,12 @@ func (r *backupGPOResource) planDriftReimport(ctx context.Context, req resource.
 	}
 
 	if current.ComputerADVersion == state.ComputerADVersion.ValueInt64() &&
-		current.ComputerSysvolVersion == state.ComputerSysvolVersion.ValueInt64() &&
-		current.UserADVersion == state.UserADVersion.ValueInt64() &&
-		current.UserSysvolVersion == state.UserSysvolVersion.ValueInt64() {
+		current.UserADVersion == state.UserADVersion.ValueInt64() {
 		return
 	}
 
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_ad_version"), types.Int64Value(current.ComputerADVersion))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_sysvol_version"), types.Int64Value(current.ComputerSysvolVersion))...)
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_ad_version"), types.Int64Value(current.UserADVersion))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_sysvol_version"), types.Int64Value(current.UserSysvolVersion))...)
 }
 
 func (r *backupGPOResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -454,8 +435,6 @@ func applyBackupGPOResult(model backupGPOResourceModel, gpo *ad.BackupGPO) backu
 // Create/Update should call this; Read() must leave it alone, see planDriftReimport.
 func applyBackupGPOVersion(model backupGPOResourceModel, gpo *ad.BackupGPO) backupGPOResourceModel {
 	model.ComputerADVersion = types.Int64Value(gpo.ComputerADVersion)
-	model.ComputerSysvolVersion = types.Int64Value(gpo.ComputerSysvolVersion)
 	model.UserADVersion = types.Int64Value(gpo.UserADVersion)
-	model.UserSysvolVersion = types.Int64Value(gpo.UserSysvolVersion)
 	return model
 }

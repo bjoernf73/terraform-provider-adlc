@@ -17,28 +17,24 @@ const defaultDomainPolicyGUID = "31B2F340-016D-11D2-945F-00C04FB984F9"
 const gpoModuleVersionRead = `Import-Module GroupPolicy -ErrorAction Stop
 $g = Get-GPO -Guid '%s'
 [pscustomobject]@{
-    guid                    = $g.Id.ToString()
-    name                    = $g.DisplayName
-    status                  = $g.GpoStatus.ToString()
-    domain                  = $g.DomainName
-    computer_ad_version     = [int64]$g.Computer.DSVersion
-    computer_sysvol_version = [int64]$g.Computer.SysvolVersion
-    user_ad_version         = [int64]$g.User.DSVersion
-    user_sysvol_version     = [int64]$g.User.SysvolVersion
+    guid                = $g.Id.ToString()
+    name                = $g.DisplayName
+    status              = $g.GpoStatus.ToString()
+    domain              = $g.DomainName
+    computer_ad_version = [int64]$g.Computer.DSVersion
+    user_ad_version     = [int64]$g.User.DSVersion
 } | ConvertTo-Json -Compress`
 
 type gpoModuleVersion struct {
-	GUID                  string `json:"guid"`
-	Name                  string `json:"name"`
-	Status                string `json:"status"`
-	Domain                string `json:"domain"`
-	ComputerADVersion     int64  `json:"computer_ad_version"`
-	ComputerSysvolVersion int64  `json:"computer_sysvol_version"`
-	UserADVersion         int64  `json:"user_ad_version"`
-	UserSysvolVersion     int64  `json:"user_sysvol_version"`
+	GUID              string `json:"guid"`
+	Name              string `json:"name"`
+	Status            string `json:"status"`
+	Domain            string `json:"domain"`
+	ComputerADVersion int64  `json:"computer_ad_version"`
+	UserADVersion     int64  `json:"user_ad_version"`
 }
 
-// TestBackupGPOReadLDAPParity asserts the LDAP GPO version read (versionNumber + GPT.ini) matches
+// TestBackupGPOReadLDAPParity asserts the LDAP GPO version read (versionNumber) matches
 // the GroupPolicy module's Get-GPO for the Default Domain Policy. Host-gated: set ADLC_HOST.
 func TestBackupGPOReadLDAPParity(t *testing.T) {
 	c := liveADClient(t)
@@ -81,9 +77,7 @@ func TestBackupGPOReadLDAPParity(t *testing.T) {
 		want int64
 	}{
 		{"computer_ad_version", ldap.ComputerADVersion, module.ComputerADVersion},
-		{"computer_sysvol_version", ldap.ComputerSysvolVersion, module.ComputerSysvolVersion},
 		{"user_ad_version", ldap.UserADVersion, module.UserADVersion},
-		{"user_sysvol_version", ldap.UserSysvolVersion, module.UserSysvolVersion},
 	}
 	for _, tc := range intCases {
 		if tc.got != tc.want {

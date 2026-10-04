@@ -26,6 +26,7 @@ var moduleFreeOperations = map[string]bool{
 	"user_read":                true,
 	"computer_read":            true,
 	"backup_gpo_read":          true,
+	"json_gpo_read":            true,
 }
 
 func script(name string) string {

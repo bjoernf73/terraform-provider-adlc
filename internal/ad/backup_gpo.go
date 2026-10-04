@@ -65,13 +65,11 @@ type BackupGPO struct {
 	Domain            string `json:"domain"`
 	Status            string `json:"status"`
 
-	// GPMC increments these on every settings change, regardless of which tool made it,
-	// so they are the only reliable signal for drift caused outside Terraform: a GPO has
-	// no other exposed notion of "content" to diff against.
-	ComputerADVersion     int64 `json:"computer_ad_version"`
-	ComputerSysvolVersion int64 `json:"computer_sysvol_version"`
-	UserADVersion         int64 `json:"user_ad_version"`
-	UserSysvolVersion     int64 `json:"user_sysvol_version"`
+	// GPMC increments these on every settings change, regardless of which tool made it, so they
+	// are the only reliable signal for drift caused outside Terraform. Import-GPO owns SYSVOL, so
+	// backup_gpo tracks the AD versionNumber only - see backup_gpo_read.ps1.
+	ComputerADVersion int64 `json:"computer_ad_version"`
+	UserADVersion     int64 `json:"user_ad_version"`
 }
 
 // EnsureBackupGPO imports a GPO backup into the target GPO, creating it if needed.

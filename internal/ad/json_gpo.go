@@ -10,6 +10,7 @@ const (
 	gpRegistryPolicyParser = "gpregistrypolicyparser.ps1"
 	jsonGPOCommon          = "json_gpo_common.ps1"
 	jsonGPOEnsure          = "json_gpo_ensure.ps1"
+	jsonGPORead            = "json_gpo_read.ps1"
 	jsonGPOExportRead      = "json_gpo_export_read.ps1"
 )
 
@@ -64,7 +65,7 @@ func EnsureJsonGPO(ctx context.Context, c *client.Client, input JsonGPOInput) (*
 func ReadJsonGPO(ctx context.Context, c *client.Client, guid string) (*JsonGPO, error) {
 	script, err := buildScript(c, map[string]any{
 		"guid": guid,
-	}, commonScript, backupGPORead)
+	}, commonScript, jsonGPORead)
 	if err != nil {
 		return nil, err
 	}
