@@ -100,17 +100,45 @@ func (c *Client) runPowerShellOnce(ctx context.Context, script string) (transpor
 		powerShellPath = c.config.GPOPowerShellPath
 	}
 
-	command, err := powershell.BuildCommand(powerShellPath)
+	token, err := powershell.NewScriptToken()
+	if err != nil {
+		return transport.Result{}, err
+	}
+	remotePath := powershell.RemoteScriptPath(token)
+
+	// Stage the script as a plain .ps1 file and run it with -File, rather than piping a
+	// compressed, base64-encoded body into an in-memory Invoke-Expression. That older bootstrap
+	// is behaviourally identical to a PowerShell stager and is blocked by behavioural antivirus
+	// (Defender flags it as Behavior:Win32/PShellCobStager), which surfaced as empty output.
+	writeCommand, err := powershell.BuildWriteCommand(powerShellPath, remotePath)
 	if err != nil {
 		return transport.Result{}, err
 	}
 
-	stdin, err := powershell.EncodeScript(script)
+	writeResult, err := c.runner.Run(ctx, writeCommand, script)
+	writeResult.Stderr = powershell.DecodeCLIXML(writeResult.Stderr)
+	if err != nil {
+		return writeResult, fmt.Errorf("uploading remote script: %w", err)
+	}
+	if writeResult.ExitCode != 0 {
+		return writeResult, fmt.Errorf("uploading remote script exited with code %d: %s", writeResult.ExitCode, resultDetail(writeResult))
+	}
+
+	// The script is on disk now, so always attempt to remove it afterwards. Cleanup is best
+	// effort and must not mask the real result; it reuses the operation context so a cancelled
+	// operation skips it rather than blocking.
+	defer func() {
+		if deleteCommand, derr := powershell.BuildDeleteCommand(powerShellPath, remotePath); derr == nil {
+			_, _ = c.runner.Run(ctx, deleteCommand, "")
+		}
+	}()
+
+	runCommand, err := powershell.BuildFileCommand(powerShellPath, remotePath)
 	if err != nil {
 		return transport.Result{}, err
 	}
 
-	result, err := c.runner.Run(ctx, command, stdin)
+	result, err := c.runner.Run(ctx, runCommand, "")
 	result.Stderr = powershell.DecodeCLIXML(result.Stderr)
 
 	if err != nil {
@@ -118,15 +146,20 @@ func (c *Client) runPowerShellOnce(ctx context.Context, script string) (transpor
 	}
 
 	if result.ExitCode != 0 {
-		errText := strings.TrimSpace(result.Stderr)
-		if errText == "" {
-			errText = strings.TrimSpace(result.Stdout)
-		}
-
-		return result, fmt.Errorf("remote PowerShell exited with code %d: %s", result.ExitCode, errText)
+		return result, fmt.Errorf("remote PowerShell exited with code %d: %s", result.ExitCode, resultDetail(result))
 	}
 
 	return result, nil
+}
+
+// resultDetail returns the most useful human-readable text from a remote result, preferring
+// stderr (already CLIXML-decoded) and falling back to stdout.
+func resultDetail(result transport.Result) string {
+	detail := strings.TrimSpace(result.Stderr)
+	if detail == "" {
+		detail = strings.TrimSpace(result.Stdout)
+	}
+	return detail
 }
 
 func (c *Client) RunPowerShellJSON(ctx context.Context, script string, target any) error {

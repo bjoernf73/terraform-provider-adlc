@@ -42,7 +42,7 @@ module's build. `go build ./...` at the repo root must never need them.
 main.go                          providerserver.Serve -> internal/provider
 internal/config                  Config struct: transport, creds, timeouts, powershell_path, domain_controller
 internal/transport               Runner interface { Run(ctx, command, stdin) (Result, error) }; winrm.go, ssh.go
-internal/powershell              BuildCommand (fixed stdin bootstrap), EncodeScript (gzip+base64), DecodeCLIXML
+internal/powershell              BuildWriteCommand/BuildFileCommand/BuildDeleteCommand (stage+run+delete a .ps1), DecodeCLIXML
 internal/client                  Client: RunPowerShell, RunPowerShellJSON (decode stdout into target)
 internal/ad                      One file per AD object type + scripts/*.ps1 embedded via go:embed
 internal/provider                Provider definition + one resource_*.go per resource
@@ -51,12 +51,18 @@ examples/<resource>/             Runnable HCL example per resource
 
 Data flow for any operation:
 `resource_x.go` → `internal/ad` builds a script → `client.RunPowerShellJSON` →
-`transport.Runner` (WinRM/SSH) → remote `pwsh -EncodedCommand <bootstrap>` with the gzipped
-script on **stdin** → JSON on stdout → struct.
+`transport.Runner` (WinRM/SSH) stages the script on the host and runs it → JSON on stdout → struct.
 
-The command line is a fixed ~1.2 KB bootstrap that reads stdin, gunzips and `Invoke-Expression`s
-the script. This exists because WinRM shells run under `cmd.exe`, whose 8191 character limit
-the scripts would otherwise exceed. **Never put the script on the command line.**
+Each operation runs three remote commands: a small `-EncodedCommand` write bootstrap reads the
+script as **plain text** from **stdin** and writes it to `C:\Windows\Temp\adlc-<token>.ps1`; the
+script is then run with `pwsh -File <path>`; the file is deleted afterwards (best effort). The body
+travels on stdin, not the command line, because WinRM shells run under `cmd.exe` whose 8191
+character limit the scripts would otherwise exceed — **never put the script on the command line**.
+The script is staged and run as a file (not decompressed and `Invoke-Expression`-ed in memory)
+because the old in-memory bootstrap is behaviourally identical to a PowerShell stager and is blocked
+by behavioural antivirus (Defender `Behavior:Win32/PShellCobStager`). Keep the write bootstrap free
+of `FromBase64String`/`GZipStream`/`Invoke-Expression`; embedded scripts must stay ASCII so the
+plaintext stdin transfer is encoding-safe.
    equivalent resource in `ref/terraform-provider-ad/ad/` + its page under
    `ref/terraform-provider-ad/docs/` — use them to decide the attribute set, defaults, read/update
    behaviour and import ID before writing any Goruct.

@@ -1,6 +1,10 @@
 # Helpers shared by every AD object type. Prefixed ahead of each operation script.
 $ErrorActionPreference = 'Stop'
 
+# stdout must carry nothing but the operation's JSON document. Silence the warning stream (for
+# example the GroupPolicy module's WinPSCompatSession notice) so a stray warning cannot corrupt it.
+$WarningPreference = 'SilentlyContinue'
+
 # Keep ANSI escapes out of stderr so provider diagnostics stay readable.
 if ($null -ne $PSStyle) {
     $PSStyle.OutputRendering = 'PlainText'

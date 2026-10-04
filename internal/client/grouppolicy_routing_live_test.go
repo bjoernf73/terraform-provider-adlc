@@ -20,7 +20,9 @@ type gpoVersionResult struct {
 }
 
 const groupPolicyProbe = `$ErrorActionPreference='Stop'
-Import-Module GroupPolicy -ErrorAction Stop
+$WarningPreference='SilentlyContinue'
+if ($null -ne $PSStyle) { $PSStyle.OutputRendering = 'PlainText' }
+Import-Module GroupPolicy -ErrorAction Stop 3>$null
 $g = Get-GPO -All | Select-Object -First 1
 [pscustomobject]@{
     edition          = $PSVersionTable.PSEdition
