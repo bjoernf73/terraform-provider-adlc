@@ -30,36 +30,34 @@ function Test-IsGPONotFound($ErrorRecord) {
 function Get-BackupGPOResult($Gpo) {
     if ($null -eq $Gpo) {
         return [pscustomobject]@{
-            exists                  = $false
-            guid                    = $null
-            name                    = $null
-            distinguished_name      = $null
-            domain                  = $null
-            status                  = $null
-            computer_ad_version     = 0
-            computer_sysvol_version = 0
-            user_ad_version         = 0
-            user_sysvol_version     = 0
+            exists              = $false
+            guid                = $null
+            name                = $null
+            distinguished_name  = $null
+            domain              = $null
+            status              = $null
+            version_number      = 0
+            computer_ad_version = 0
+            user_ad_version     = 0
         }
     }
 
-    # The module's SysvolVersion can read stale right after New-GPO bumps GPT.ini; parse the
-    # GPT.ini watermark directly so the ensure result matches the LDAP read field-for-field.
-    $sysvolVersion = Get-ADLCGptIniVersion ([string]$Gpo.Path)
+    $computerVersion = [int64]$Gpo.Computer.DSVersion
+    $userVersion = [int64]$Gpo.User.DSVersion
 
     return [pscustomobject]@{
-        exists                  = $true
-        guid                    = $Gpo.Id.ToString()
-        name                    = $Gpo.DisplayName
+        exists              = $true
+        guid                = $Gpo.Id.ToString()
+        name                = $Gpo.DisplayName
         # $Gpo.Path's GUID casing depends on which Get-GPO parameter set resolved it
         # (-Name vs -Guid), which would otherwise show up as permanent drift; build the
         # DN ourselves from $Gpo.Id, which Get-GPO always renders the same way.
-        distinguished_name      = "CN={$($Gpo.Id.ToString())},CN=Policies,CN=System,$(Get-DomainDN)"
-        domain                  = $Gpo.DomainName
-        status                  = $Gpo.GpoStatus.ToString()
-        computer_ad_version     = [int64]$Gpo.Computer.DSVersion
-        computer_sysvol_version = ($sysvolVersion -band 0xFFFF)
-        user_ad_version         = [int64]$Gpo.User.DSVersion
-        user_sysvol_version     = (($sysvolVersion -shr 16) -band 0xFFFF)
+        distinguished_name  = "CN={$($Gpo.Id.ToString())},CN=Policies,CN=System,$(Get-DomainDN)"
+        domain              = $Gpo.DomainName
+        status              = $Gpo.GpoStatus.ToString()
+        # versionNumber packs user in the high word, computer in the low word.
+        version_number      = ($userVersion -shl 16) -bor $computerVersion
+        computer_ad_version = $computerVersion
+        user_ad_version     = $userVersion
     }
 }

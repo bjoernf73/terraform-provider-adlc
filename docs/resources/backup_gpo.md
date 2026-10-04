@@ -6,7 +6,7 @@ description: |-
   Imports a GPMC backup GPO https://learn.microsoft.com/en-us/powershell/module/grouppolicy/backup-gpo into Active Directory via Import-GPO. This is one of two ways this provider manages GPOs: adlc_backup_gpo imports a folder produced by Backup-GPO (or the GPMC UI); adlc_json_gpo imports a JSON description instead. Use adlc_backup_gpo when you already have (or can export) a working GPO to replicate across domains or environments.
   The backup folder (path/backup_name/) is read from the machine running Terraform and uploaded to the target Windows host for every apply; the resource has no way to detect out-of-band changes to that folder between plans, so it re-imports whenever the folder contents or migrations change, detected via a content fingerprint.
   Import-GPO re-imports settings in place when target_name already exists, keeping the GPO's GUID and existing links, so updates never delete and recreate the GPO.
-  A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the version recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match.
+  A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD version counter instead: every plan re-checks it against the version recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match. Import-GPO owns the SYSVOL/GPT.ini version, so this resource tracks only the AD versionNumber.
 ---
 
 # adlc_backup_gpo (Resource)
@@ -17,7 +17,7 @@ The backup folder (`path/backup_name/`) is read from the machine running Terrafo
 
 `Import-GPO` re-imports settings in place when `target_name` already exists, keeping the GPO's GUID and existing links, so updates never delete and recreate the GPO.
 
-A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the version recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match.
+A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD version counter instead: every plan re-checks it against the version recorded at the last apply, and re-imports the backup to overwrite the drift when they no longer match. `Import-GPO` owns the SYSVOL/GPT.ini version, so this resource tracks only the AD `versionNumber`.
 
 ## Example Usage
 
@@ -67,15 +67,14 @@ resource "adlc_backup_gpo" "baseline_workstation" {
 
 ### Read-Only
 
-- `computer_ad_version` (Number) Computer-side directory version at the time of the last apply. GPMC increments this on every settings change, by any tool, so a mismatch against the live value is how this resource detects a GPO edited outside Terraform; see `terraform plan`, which re-imports the backup to overwrite such drift.
-- `computer_sysvol_version` (Number) Computer-side SYSVOL version at the time of the last apply. See `computer_ad_version`.
+- `computer_ad_version` (Number) Computer-side directory version, the low 16 bits of `version_number`, exposed as a human-readable counter. Drift is detected on `version_number`, not this field.
 - `content_hash` (String) Fingerprint of the backup folder contents and `migrations`, recomputed from local disk on every plan. Not meant to be read directly; it exists so changes to the backup folder are detected even though the folder itself is not a Terraform value.
 - `distinguished_name` (String) Distinguished name of the GPO container.
 - `domain` (String) Domain the GPO belongs to.
 - `id` (String) Terraform resource identifier. Equals the GPO's GUID.
 - `status` (String) GPO status: `AllSettingsEnabled`, `UserSettingsDisabled`, `ComputerSettingsDisabled` or `AllSettingsDisabled`.
-- `user_ad_version` (Number) User-side directory version at the time of the last apply. See `computer_ad_version`.
-- `user_sysvol_version` (Number) User-side SYSVOL version at the time of the last apply. See `computer_ad_version`.
+- `user_ad_version` (Number) User-side directory version, the high 16 bits of `version_number`, exposed as a human-readable counter. See `version_number`.
+- `version_number` (Number) The GPO's AD `versionNumber`, the single watermark this resource tracks for drift. AD increments it on every settings change (by any tool) and never lowers it, so a mismatch against the value recorded at the last apply means the GPO was edited outside Terraform; the next plan re-imports the backup and records the new, higher version AD assigns rather than forcing the counter back down. It packs both side counters: the computer version in the low 16 bits, the user version in the high 16 bits, exposed decoded as `computer_ad_version` and `user_ad_version`.
 
 <a id="nestedatt--migrations"></a>
 ### Nested Schema for `migrations`

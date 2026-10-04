@@ -21,6 +21,7 @@ $g = Get-GPO -Guid '%s'
     name                = $g.DisplayName
     status              = $g.GpoStatus.ToString()
     domain              = $g.DomainName
+    version_number      = ([int64]$g.User.DSVersion -shl 16) -bor [int64]$g.Computer.DSVersion
     computer_ad_version = [int64]$g.Computer.DSVersion
     user_ad_version     = [int64]$g.User.DSVersion
 } | ConvertTo-Json -Compress`
@@ -30,6 +31,7 @@ type gpoModuleVersion struct {
 	Name              string `json:"name"`
 	Status            string `json:"status"`
 	Domain            string `json:"domain"`
+	VersionNumber     int64  `json:"version_number"`
 	ComputerADVersion int64  `json:"computer_ad_version"`
 	UserADVersion     int64  `json:"user_ad_version"`
 }
@@ -76,6 +78,7 @@ func TestBackupGPOReadLDAPParity(t *testing.T) {
 		got  int64
 		want int64
 	}{
+		{"version_number", ldap.VersionNumber, module.VersionNumber},
 		{"computer_ad_version", ldap.ComputerADVersion, module.ComputerADVersion},
 		{"user_ad_version", ldap.UserADVersion, module.UserADVersion},
 	}

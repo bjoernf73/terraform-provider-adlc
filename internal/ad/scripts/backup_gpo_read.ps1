@@ -15,6 +15,7 @@ if ($null -eq $entry) {
         distinguished_name  = $null
         domain              = $null
         status              = $null
+        version_number      = 0
         computer_ad_version = 0
         user_ad_version     = 0
     } | ConvertTo-Json -Compress
@@ -40,6 +41,7 @@ switch ([int](Get-ADLCString $entry 'flags')) {
     distinguished_name  = $gpoDN
     domain              = ConvertFrom-DNToDnsName $domainDN
     status              = $status
+    version_number      = $versionNumber
     computer_ad_version = $computerAdVersion
     user_ad_version     = $userAdVersion
 } | ConvertTo-Json -Compress

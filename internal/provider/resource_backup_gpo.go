@@ -54,8 +54,10 @@ type backupGPOResourceModel struct {
 	Domain            types.String `tfsdk:"domain"`
 	Status            types.String `tfsdk:"status"`
 
-	// Version at the time of our last Import-GPO, used by ModifyPlan to detect edits
-	// made outside Terraform since; Read() must never overwrite these, see ModifyPlan.
+	// VersionNumber is the AD versionNumber recorded after our last Import-GPO and is the single
+	// watermark ModifyPlan diffs against the live value to detect out-of-band edits; Read() must
+	// never overwrite it. ComputerADVersion/UserADVersion are its decoded words, readable only.
+	VersionNumber     types.Int64 `tfsdk:"version_number"`
 	ComputerADVersion types.Int64 `tfsdk:"computer_ad_version"`
 	UserADVersion     types.Int64 `tfsdk:"user_ad_version"`
 }
@@ -165,18 +167,30 @@ func (r *backupGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed:            true,
 				MarkdownDescription: "GPO status: `AllSettingsEnabled`, `UserSettingsDisabled`, `ComputerSettingsDisabled` or `AllSettingsDisabled`.",
 			},
+			"version_number": schema.Int64Attribute{
+				Computed: true,
+				MarkdownDescription: "The GPO's AD `versionNumber`, the single watermark this resource tracks for drift. " +
+					"AD increments it on every settings change (by any tool) and never lowers it, so a mismatch against " +
+					"the value recorded at the last apply means the GPO was edited outside Terraform; the next plan re-imports " +
+					"the backup and records the new, higher version AD assigns rather than forcing the counter back down. It " +
+					"packs both side counters: the computer version in the low 16 bits, the user version in the high 16 bits, " +
+					"exposed decoded as `computer_ad_version` and `user_ad_version`.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+			},
 			"computer_ad_version": schema.Int64Attribute{
 				Computed: true,
-				MarkdownDescription: "Computer-side directory version at the time of the last apply. GPMC increments this on " +
-					"every settings change, by any tool, so a mismatch against the live value is how this resource detects a GPO " +
-					"edited outside Terraform; see `terraform plan`, which re-imports the backup to overwrite such drift.",
+				MarkdownDescription: "Computer-side directory version, the low 16 bits of `version_number`, exposed as a " +
+					"human-readable counter. Drift is detected on `version_number`, not this field.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			"user_ad_version": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "User-side directory version at the time of the last apply. See `computer_ad_version`.",
+				Computed: true,
+				MarkdownDescription: "User-side directory version, the high 16 bits of `version_number`, exposed as a " +
+					"human-readable counter. See `version_number`.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
@@ -266,15 +280,18 @@ func (r *backupGPOResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	hash := ad.HashBackupGPOContent(files, migrations)
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("content_hash"), types.StringValue(hash))...)
 
-	r.planDriftReimport(ctx, req, resp)
+	r.markVersionsUnknownOnReimport(ctx, req, resp, hash)
 }
 
-// planDriftReimport detects a GPO changed outside Terraform since the last apply. Read()
-// deliberately never touches the version watermark fields (see backupGPOResourceModel),
-// so req.State here still holds the version recorded after our last Import-GPO; a extra
-// live fetch lets us compare it against the current version and force a re-import when
-// they differ, which is the only way to revert drift Terraform has no other way to see.
-func (r *backupGPOResource) planDriftReimport(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+// markVersionsUnknownOnReimport marks the version attributes unknown whenever this plan will
+// re-import the backup - either because the local backup folder/migrations changed (content_hash
+// differs) or because the GPO drifted out-of-band since the last apply (live versionNumber moved).
+// Import-GPO always bumps the AD versionNumber on re-import and AD never lowers it, so we cannot
+// predict the resulting value; leaving the attributes unknown lets Create/Update record whatever
+// AD assigns without a "provider produced inconsistent result" error. Read() deliberately never
+// touches the watermark (see backupGPOResourceModel), so req.State still holds the last applied
+// version to diff against here.
+func (r *backupGPOResource) markVersionsUnknownOnReimport(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse, newHash string) {
 	if req.State.Raw.IsNull() || r.client == nil {
 		return
 	}
@@ -285,19 +302,24 @@ func (r *backupGPOResource) planDriftReimport(ctx context.Context, req resource.
 		return
 	}
 
-	current, err := ad.ReadBackupGPO(ctx, r.client, state.ID.ValueString())
-	if err != nil || !current.Exists {
-		// Let the ordinary refresh pass surface the error, or the removal, instead.
+	reimport := !state.ContentHash.IsNull() && state.ContentHash.ValueString() != newHash
+	if !reimport {
+		// Content is unchanged, so only an out-of-band edit can force a re-import; a live read
+		// is the only way to see it, since the GPO exposes no content to diff against.
+		current, err := ad.ReadBackupGPO(ctx, r.client, state.ID.ValueString())
+		if err != nil || !current.Exists {
+			// Let the ordinary refresh pass surface the error, or the removal, instead.
+			return
+		}
+		reimport = current.VersionNumber != state.VersionNumber.ValueInt64()
+	}
+	if !reimport {
 		return
 	}
 
-	if current.ComputerADVersion == state.ComputerADVersion.ValueInt64() &&
-		current.UserADVersion == state.UserADVersion.ValueInt64() {
-		return
-	}
-
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_ad_version"), types.Int64Value(current.ComputerADVersion))...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_ad_version"), types.Int64Value(current.UserADVersion))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("version_number"), types.Int64Unknown())...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_ad_version"), types.Int64Unknown())...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_ad_version"), types.Int64Unknown())...)
 }
 
 func (r *backupGPOResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -337,7 +359,7 @@ func (r *backupGPOResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	// Deliberately does not touch the version watermark: see planDriftReimport.
+	// Deliberately does not touch the version watermark: see markVersionsUnknownOnReimport.
 	resp.Diagnostics.Append(resp.State.Set(ctx, applyBackupGPOResult(state, gpo))...)
 }
 
@@ -432,8 +454,9 @@ func applyBackupGPOResult(model backupGPOResourceModel, gpo *ad.BackupGPO) backu
 }
 
 // applyBackupGPOVersion stamps the version watermark after a successful Import-GPO. Only
-// Create/Update should call this; Read() must leave it alone, see planDriftReimport.
+// Create/Update should call this; Read() must leave it alone, see markVersionsUnknownOnReimport.
 func applyBackupGPOVersion(model backupGPOResourceModel, gpo *ad.BackupGPO) backupGPOResourceModel {
+	model.VersionNumber = types.Int64Value(gpo.VersionNumber)
 	model.ComputerADVersion = types.Int64Value(gpo.ComputerADVersion)
 	model.UserADVersion = types.Int64Value(gpo.UserADVersion)
 	return model

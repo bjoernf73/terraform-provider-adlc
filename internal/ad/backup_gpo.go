@@ -65,9 +65,10 @@ type BackupGPO struct {
 	Domain            string `json:"domain"`
 	Status            string `json:"status"`
 
-	// GPMC increments these on every settings change, regardless of which tool made it, so they
-	// are the only reliable signal for drift caused outside Terraform. Import-GPO owns SYSVOL, so
-	// backup_gpo tracks the AD versionNumber only - see backup_gpo_read.ps1.
+	// VersionNumber is the groupPolicyContainer's raw versionNumber, the single watermark the
+	// resource tracks for drift: AD bumps it on every settings change (any tool) and never lowers
+	// it. ComputerADVersion/UserADVersion are its low/high words, kept only as readable values.
+	VersionNumber     int64 `json:"version_number"`
 	ComputerADVersion int64 `json:"computer_ad_version"`
 	UserADVersion     int64 `json:"user_ad_version"`
 }
