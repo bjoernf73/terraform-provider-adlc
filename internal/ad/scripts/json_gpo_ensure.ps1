@@ -214,5 +214,27 @@ if (Test-Path -Path $gptIniPath) {
     Write-JsonGPOIniFile -Path $gptIniPath -Sections ([ordered]@{ General = [ordered]@{ Version = $newVersion } }) -NoBom
 }
 
-$gpo = Get-GPO -Guid $gpo.Id @serverParams -ErrorAction Stop
-Get-BackupGPOResult -Gpo $gpo | ConvertTo-Json -Compress
+# Report the version we just wrote to both AD and GPT.ini rather than reading SYSVOL back:
+# AD == SYSVOL by construction here, and a read-back of GPT.ini can lag at create time. Like
+# backup_gpo, the resource tracks only version_number; computer/user are its decoded words.
+$computerAdVersion = $newVersion -band 0xFFFF
+$userAdVersion = ($newVersion -shr 16) -band 0xFFFF
+
+switch ($flags) {
+    1 { $status = 'UserSettingsDisabled' }
+    2 { $status = 'ComputerSettingsDisabled' }
+    3 { $status = 'AllSettingsDisabled' }
+    default { $status = 'AllSettingsEnabled' }
+}
+
+[pscustomobject]@{
+    exists              = $true
+    guid                = $gpo.Id.ToString()
+    name                = $targetName
+    distinguished_name  = [string]$gpcObject.DistinguishedName
+    domain              = ConvertFrom-DNToDnsName (Get-DomainDN)
+    status              = $status
+    version_number      = $newVersion
+    computer_ad_version = $computerAdVersion
+    user_ad_version     = $userAdVersion
+} | ConvertTo-Json -Compress

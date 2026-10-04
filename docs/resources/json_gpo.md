@@ -6,7 +6,7 @@ description: |-
   Imports a GPO described as JSON (registry settings, security template, audit settings, comments, scripts and Group Policy Preferences), the format produced by dry.module.ad https://github.com/bjoernf73/dry.module.ad's Export-GroupPolicyFromAD. This is the second of two ways this provider manages GPOs: adlc_backup_gpo imports a Backup-GPO folder; adlc_json_gpo imports a JSON description instead, which resolves every security principal it references by name in the target domain automatically (####Replace[DOMAIN\Name] tokens), rather than needing an explicit migration table.
   GPO links (adlc_gpo_links), ACLs (adlc_access_rule) and WMI filters are deliberately out of scope: any LinkTargets, Permissions or WMIFilter present in the JSON are ignored.
   The JSON file is read from the machine running Terraform; the resource has no way to detect out-of-band changes to that file between plans, so it re-imports whenever the file contents or replacements change, detected via a content fingerprint. Re-importing overwrites target_name's SYSVOL content in place, keeping its GUID and existing links, so updates never delete and recreate the GPO.
-  A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the version recorded at the last apply, and re-imports the JSON to overwrite the drift when they no longer match.
+  A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD version counter instead: every plan re-checks it against the version recorded at the last apply, and re-imports the JSON to overwrite the drift when they no longer match. The import writes the SYSVOL GPT.ini in lockstep with the AD versionNumber, so this resource tracks only the AD versionNumber.
 ---
 
 # adlc_json_gpo (Resource)
@@ -17,7 +17,7 @@ GPO links (`adlc_gpo_links`), ACLs (`adlc_access_rule`) and WMI filters are deli
 
 The JSON file is read from the machine running Terraform; the resource has no way to detect out-of-band changes to that file between plans, so it re-imports whenever the file contents or `replacements` change, detected via a content fingerprint. Re-importing overwrites `target_name`'s SYSVOL content in place, keeping its GUID and existing links, so updates never delete and recreate the GPO.
 
-A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the version recorded at the last apply, and re-imports the JSON to overwrite the drift when they no longer match.
+A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO in GPMC) is detected through its AD version counter instead: every plan re-checks it against the version recorded at the last apply, and re-imports the JSON to overwrite the drift when they no longer match. The import writes the SYSVOL `GPT.ini` in lockstep with the AD `versionNumber`, so this resource tracks only the AD `versionNumber`.
 
 ## Example Usage
 
@@ -50,15 +50,14 @@ resource "adlc_json_gpo" "domain_gpo5" {
 
 ### Read-Only
 
-- `computer_ad_version` (Number) Computer-side directory version at the time of the last apply. GPMC increments this on every settings change, by any tool, so a mismatch against the live value is how this resource detects a GPO edited outside Terraform; see `terraform plan`, which re-imports the JSON to overwrite such drift.
-- `computer_sysvol_version` (Number) Computer-side SYSVOL version at the time of the last apply. See `computer_ad_version`.
+- `computer_ad_version` (Number) Computer-side directory version, the low 16 bits of `version_number`, exposed as a human-readable counter. Drift is detected on `version_number`, not this field.
 - `content_hash` (String) Fingerprint of the JSON file's contents and `replacements`, recomputed from local disk on every plan. Not meant to be read directly; it exists so changes to the file are detected even though the file itself is not a Terraform value.
 - `distinguished_name` (String) Distinguished name of the GPO container.
 - `domain` (String) Domain the GPO belongs to.
 - `id` (String) Terraform resource identifier. Equals the GPO's GUID.
 - `status` (String) GPO status: `AllSettingsEnabled`, `UserSettingsDisabled`, `ComputerSettingsDisabled` or `AllSettingsDisabled`.
-- `user_ad_version` (Number) User-side directory version at the time of the last apply. See `computer_ad_version`.
-- `user_sysvol_version` (Number) User-side SYSVOL version at the time of the last apply. See `computer_ad_version`.
+- `user_ad_version` (Number) User-side directory version, the high 16 bits of `version_number`, exposed as a human-readable counter. See `version_number`.
+- `version_number` (Number) The GPO's AD `versionNumber`, the single watermark this resource tracks for drift. AD increments it on every settings change (by any tool) and never lowers it, so a mismatch against the value recorded at the last apply means the GPO was edited outside Terraform; the next plan re-imports the JSON and records the new, higher version AD assigns rather than forcing the counter back down. It packs both side counters: the computer version in the low 16 bits, the user version in the high 16 bits, exposed decoded as `computer_ad_version` and `user_ad_version`.
 
 ## Import
 

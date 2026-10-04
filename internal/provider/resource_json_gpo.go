@@ -42,12 +42,12 @@ type jsonGPOResourceModel struct {
 	Domain            types.String `tfsdk:"domain"`
 	Status            types.String `tfsdk:"status"`
 
-	// Version at the time of our last import, used by ModifyPlan to detect edits made
-	// outside Terraform since; Read() must never overwrite these, see markVersionsUnknownOnReimport.
-	ComputerADVersion     types.Int64 `tfsdk:"computer_ad_version"`
-	ComputerSysvolVersion types.Int64 `tfsdk:"computer_sysvol_version"`
-	UserADVersion         types.Int64 `tfsdk:"user_ad_version"`
-	UserSysvolVersion     types.Int64 `tfsdk:"user_sysvol_version"`
+	// VersionNumber is the AD versionNumber recorded after our last import and is the single
+	// watermark ModifyPlan diffs against the live value to detect out-of-band edits; Read() must
+	// never overwrite it. ComputerADVersion/UserADVersion are its decoded words, readable only.
+	VersionNumber     types.Int64 `tfsdk:"version_number"`
+	ComputerADVersion types.Int64 `tfsdk:"computer_ad_version"`
+	UserADVersion     types.Int64 `tfsdk:"user_ad_version"`
 }
 
 func (r *jsonGPOResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -70,8 +70,10 @@ func (r *jsonGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"detected via a content fingerprint. Re-importing overwrites `target_name`'s SYSVOL content in place, keeping " +
 			"its GUID and existing links, so updates never delete and recreate the GPO.\n\n" +
 			"A GPO exposes no content to diff against directly, so drift caused outside Terraform (someone editing the GPO " +
-			"in GPMC) is detected through its AD/SysVol version counters instead: every plan re-checks them against the " +
-			"version recorded at the last apply, and re-imports the JSON to overwrite the drift when they no longer match.",
+			"in GPMC) is detected through its AD version counter instead: every plan re-checks it against the version " +
+			"recorded at the last apply, and re-imports the JSON to overwrite the drift when they no longer match. The " +
+			"import writes the SYSVOL `GPT.ini` in lockstep with the AD `versionNumber`, so this resource tracks only the " +
+			"AD `versionNumber`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -126,32 +128,30 @@ func (r *jsonGPOResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:            true,
 				MarkdownDescription: "GPO status: `AllSettingsEnabled`, `UserSettingsDisabled`, `ComputerSettingsDisabled` or `AllSettingsDisabled`.",
 			},
-			"computer_ad_version": schema.Int64Attribute{
+			"version_number": schema.Int64Attribute{
 				Computed: true,
-				MarkdownDescription: "Computer-side directory version at the time of the last apply. GPMC increments this on " +
-					"every settings change, by any tool, so a mismatch against the live value is how this resource detects a GPO " +
-					"edited outside Terraform; see `terraform plan`, which re-imports the JSON to overwrite such drift.",
+				MarkdownDescription: "The GPO's AD `versionNumber`, the single watermark this resource tracks for drift. " +
+					"AD increments it on every settings change (by any tool) and never lowers it, so a mismatch against " +
+					"the value recorded at the last apply means the GPO was edited outside Terraform; the next plan re-imports " +
+					"the JSON and records the new, higher version AD assigns rather than forcing the counter back down. It " +
+					"packs both side counters: the computer version in the low 16 bits, the user version in the high 16 bits, " +
+					"exposed decoded as `computer_ad_version` and `user_ad_version`.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
-			"computer_sysvol_version": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "Computer-side SYSVOL version at the time of the last apply. See `computer_ad_version`.",
+			"computer_ad_version": schema.Int64Attribute{
+				Computed: true,
+				MarkdownDescription: "Computer-side directory version, the low 16 bits of `version_number`, exposed as a " +
+					"human-readable counter. Drift is detected on `version_number`, not this field.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			"user_ad_version": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "User-side directory version at the time of the last apply. See `computer_ad_version`.",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
-			},
-			"user_sysvol_version": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "User-side SYSVOL version at the time of the last apply. See `computer_ad_version`.",
+				Computed: true,
+				MarkdownDescription: "User-side directory version, the high 16 bits of `version_number`, exposed as a " +
+					"human-readable counter. See `version_number`.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
@@ -237,20 +237,16 @@ func (r *jsonGPOResource) markVersionsUnknownOnReimport(ctx context.Context, req
 			return
 		}
 
-		reimport = current.ComputerADVersion != state.ComputerADVersion.ValueInt64() ||
-			current.ComputerSysvolVersion != state.ComputerSysvolVersion.ValueInt64() ||
-			current.UserADVersion != state.UserADVersion.ValueInt64() ||
-			current.UserSysvolVersion != state.UserSysvolVersion.ValueInt64()
+		reimport = current.VersionNumber != state.VersionNumber.ValueInt64()
 	}
 
 	if !reimport {
 		return
 	}
 
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("version_number"), types.Int64Unknown())...)
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_ad_version"), types.Int64Unknown())...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("computer_sysvol_version"), types.Int64Unknown())...)
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_ad_version"), types.Int64Unknown())...)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("user_sysvol_version"), types.Int64Unknown())...)
 }
 
 func (r *jsonGPOResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -372,9 +368,8 @@ func applyJsonGPOResult(model jsonGPOResourceModel, gpo *ad.JsonGPO) jsonGPOReso
 // applyJsonGPOVersion stamps the version watermark after a successful import. Only
 // Create/Update should call this; Read() must leave it alone, see markVersionsUnknownOnReimport.
 func applyJsonGPOVersion(model jsonGPOResourceModel, gpo *ad.JsonGPO) jsonGPOResourceModel {
+	model.VersionNumber = types.Int64Value(gpo.VersionNumber)
 	model.ComputerADVersion = types.Int64Value(gpo.ComputerADVersion)
-	model.ComputerSysvolVersion = types.Int64Value(gpo.ComputerSysvolVersion)
 	model.UserADVersion = types.Int64Value(gpo.UserADVersion)
-	model.UserSysvolVersion = types.Int64Value(gpo.UserSysvolVersion)
 	return model
 }

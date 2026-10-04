@@ -10,7 +10,6 @@ const (
 	gpRegistryPolicyParser = "gpregistrypolicyparser.ps1"
 	jsonGPOCommon          = "json_gpo_common.ps1"
 	jsonGPOEnsure          = "json_gpo_ensure.ps1"
-	jsonGPORead            = "json_gpo_read.ps1"
 	jsonGPOExportRead      = "json_gpo_export_read.ps1"
 )
 
@@ -29,8 +28,9 @@ func (i JsonGPOInput) payload() map[string]any {
 }
 
 // JsonGPO mirrors BackupGPO: both import into an ordinary GPO, so Read/Delete and the
-// version-drift watermark are identical - see ReadBackupGPO/DeleteBackupGPO, reused here
-// via the shared backup_gpo_common.ps1/backup_gpo_read.ps1/backup_gpo_delete.ps1 scripts.
+// version-drift watermark are identical - the shared backup_gpo_read.ps1/backup_gpo_delete.ps1
+// scripts are reused here. json_gpo writes the GPT.ini itself at import time and keeps it in
+// lockstep with the AD versionNumber, so like backup_gpo it tracks only the AD versionNumber.
 type JsonGPO struct {
 	Exists            bool   `json:"exists"`
 	GUID              string `json:"guid"`
@@ -39,10 +39,11 @@ type JsonGPO struct {
 	Domain            string `json:"domain"`
 	Status            string `json:"status"`
 
-	ComputerADVersion     int64 `json:"computer_ad_version"`
-	ComputerSysvolVersion int64 `json:"computer_sysvol_version"`
-	UserADVersion         int64 `json:"user_ad_version"`
-	UserSysvolVersion     int64 `json:"user_sysvol_version"`
+	// VersionNumber is the groupPolicyContainer's raw versionNumber, the single watermark the
+	// resource tracks for drift. ComputerADVersion/UserADVersion are its low/high words, readable only.
+	VersionNumber     int64 `json:"version_number"`
+	ComputerADVersion int64 `json:"computer_ad_version"`
+	UserADVersion     int64 `json:"user_ad_version"`
 }
 
 // EnsureJsonGPO imports a JSON GPO into the target GPO, creating it if needed.
@@ -65,7 +66,7 @@ func EnsureJsonGPO(ctx context.Context, c *client.Client, input JsonGPOInput) (*
 func ReadJsonGPO(ctx context.Context, c *client.Client, guid string) (*JsonGPO, error) {
 	script, err := buildScript(c, map[string]any{
 		"guid": guid,
-	}, commonScript, jsonGPORead)
+	}, commonScript, backupGPORead)
 	if err != nil {
 		return nil, err
 	}
