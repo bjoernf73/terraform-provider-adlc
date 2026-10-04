@@ -231,7 +231,9 @@ switch ($flags) {
     exists              = $true
     guid                = $gpo.Id.ToString()
     name                = $targetName
-    distinguished_name  = [string]$gpcObject.DistinguishedName
+    # Build the DN from $gpo.Id (lowercase GUID) to match the LDAP read; $gpcObject's own
+    # DistinguishedName renders the GUID uppercase and would show as permanent drift.
+    distinguished_name  = "CN={$($gpo.Id.ToString())},CN=Policies,CN=System,$(Get-DomainDN)"
     domain              = ConvertFrom-DNToDnsName (Get-DomainDN)
     status              = $status
     version_number      = $newVersion
