@@ -242,8 +242,8 @@ resource "adlc_json_gpo" "imports" {
 }
 
 # Links two GPOs onto the Servers OU. Authoritative for that OU's links, so it exercises the
-# create path (New-GPLink) for both, precedence order (domain_gpo1 first), and an enforced
-# link. The OU holds no other links, so re-applies stay idempotent.
+# create path (writing gPLink over LDAP) for both, precedence order (domain_gpo1 first), and an
+# enforced link. The OU holds no other links, so re-applies stay idempotent.
 resource "adlc_gpo_links" "servers" {
   target = adlc_organizational_unit.child["Servers"].path
 
