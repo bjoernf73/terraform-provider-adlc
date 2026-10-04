@@ -23,6 +23,11 @@ func isTransientScriptError(errText string) bool {
 	return strings.Contains(errText, "A local error has occurred")
 }
 
+// noOutputAttempts bounds how many times RunPowerShellJSON retries when a remote operation exits
+// 0 but returns no JSON on stdout. Every script emits JSON on success, so an empty stdout is a
+// lost/truncated response; the scripts are idempotent, so retrying is safe.
+const noOutputAttempts = 3
+
 // usesGroupPolicyModule reports whether a composed script loads the GroupPolicy module. That
 // module is not native to PowerShell 7; under pwsh it loads through the Windows PowerShell
 // Compatibility layer, which warns and returns deserialized objects. Such scripts run under
@@ -125,27 +130,42 @@ func (c *Client) runPowerShellOnce(ctx context.Context, script string) (transpor
 }
 
 func (c *Client) RunPowerShellJSON(ctx context.Context, script string, target any) error {
-	result, err := c.RunPowerShell(ctx, script)
-	if err != nil {
-		return err
-	}
+	var lastErr error
 
-	if strings.TrimSpace(result.Stdout) == "" {
-		// The operation scripts always emit a JSON document on success, so an empty stdout
-		// means the output never came back. Surface the remote's exit code and stderr (already
-		// CLIXML-decoded) instead of swallowing them, so the real cause - a GroupPolicy module
-		// warning, a permissions error, or a WinRM shell being recycled under its memory quota -
-		// is visible rather than hidden behind a bare "no JSON output".
+	for attempt := 1; attempt <= noOutputAttempts; attempt++ {
+		result, err := c.RunPowerShell(ctx, script)
+		if err != nil {
+			return err
+		}
+
+		if strings.TrimSpace(result.Stdout) != "" {
+			if err := json.Unmarshal([]byte(result.Stdout), target); err != nil {
+				return fmt.Errorf("decoding remote JSON output: %w; output: %s", err, result.Stdout)
+			}
+			return nil
+		}
+
+		// Every operation script emits a JSON document on success, so an empty stdout at exit 0
+		// means the output never came back - a truncated or lost WinRM response. Because the
+		// scripts are idempotent, retrying a few times recovers it; only after exhausting the
+		// attempts do we surface the exit code and stderr (already CLIXML-decoded) so the real
+		// cause - a module warning, a permissions error, or a recycled WinRM shell - is visible.
 		detail := strings.TrimSpace(result.Stderr)
 		if detail == "" {
 			detail = "nothing on stdout or stderr"
 		}
-		return fmt.Errorf("remote PowerShell returned no JSON output (exit code %d): %s", result.ExitCode, detail)
+		lastErr = fmt.Errorf("remote PowerShell returned no JSON output (exit code %d): %s", result.ExitCode, detail)
+
+		if attempt == noOutputAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(attempt) * time.Second):
+		}
 	}
 
-	if err := json.Unmarshal([]byte(result.Stdout), target); err != nil {
-		return fmt.Errorf("decoding remote JSON output: %w; output: %s", err, result.Stdout)
-	}
-
-	return nil
+	return lastErr
 }

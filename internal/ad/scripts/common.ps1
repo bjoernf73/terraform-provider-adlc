@@ -126,6 +126,22 @@ function Search-ADLCEntries([string]$BaseDN, [string]$Filter, [System.DirectoryS
     return $response.Entries
 }
 
+# Replaces an attribute's values via an LDAP modify. Passing no values (or only empty strings)
+# clears the attribute: an LDAP replace with no values removes it.
+function Set-ADLCAttribute([string]$DistinguishedName, [string]$Name, [string[]]$Values) {
+    $connection = Get-ADLCLdapConnection
+    $modification = New-Object System.DirectoryServices.Protocols.DirectoryAttributeModification
+    $modification.Name = $Name
+    $modification.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+    foreach ($value in @($Values)) {
+        if (-not [string]::IsNullOrEmpty($value)) {
+            [void]$modification.Add($value)
+        }
+    }
+    $request = New-Object System.DirectoryServices.Protocols.ModifyRequest($DistinguishedName, $modification)
+    [void]$connection.SendRequest($request)
+}
+
 # Reads a single string-valued attribute, or $null when absent.
 function Get-ADLCString($Entry, [string]$Name) {
     if ($null -eq $Entry -or -not $Entry.Attributes.Contains($Name)) {

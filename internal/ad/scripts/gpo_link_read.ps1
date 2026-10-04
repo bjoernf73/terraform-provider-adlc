@@ -1,13 +1,10 @@
+$domainDN = Get-DomainDN
 $targetDN = [string]$payload.target_dn
 
-try {
-    Get-GPOLinksResult -TargetDN $targetDN | ConvertTo-Json -Compress -Depth 5
+$result = Get-ADLCGPOLinks -TargetDN $targetDN -DomainDN $domainDN
+if ($null -eq $result) {
+    [pscustomobject]@{ exists = $false } | ConvertTo-Json -Compress
+    return
 }
-catch {
-    if (Test-IsGPOLinkTargetNotFound $_) {
-        [pscustomobject]@{ exists = $false } | ConvertTo-Json -Compress
-    }
-    else {
-        throw
-    }
-}
+
+$result | ConvertTo-Json -Compress -Depth 5

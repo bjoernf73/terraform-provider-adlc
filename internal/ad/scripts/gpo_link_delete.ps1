@@ -1,17 +1,12 @@
+$domainDN = Get-DomainDN
 $targetDN = [string]$payload.target_dn
-$serverParams = Get-ServerParams
 
-try {
-    $current = Get-GPInheritance -Target $targetDN @serverParams -ErrorAction Stop
-    foreach ($link in @($current.GpoLinks)) {
-        Remove-GPLink -Guid $link.GpoId -Target $targetDN @serverParams -ErrorAction Stop | Out-Null
-    }
-    Set-GPInheritance -Target $targetDN -IsBlocked No @serverParams -ErrorAction Stop | Out-Null
-}
-catch {
-    if (-not (Test-IsGPOLinkTargetNotFound $_)) {
-        throw
-    }
+# Clear the links this resource owned and reset block-inheritance, but only if the target still
+# exists (the OU/site may already be gone).
+$entry = Get-ADLCEntry -DistinguishedName $targetDN -Attributes @('distinguishedName')
+if ($null -ne $entry) {
+    Set-ADLCAttribute -DistinguishedName $targetDN -Name 'gPLink' -Values @()
+    Set-ADLCAttribute -DistinguishedName $targetDN -Name 'gPOptions' -Values @('0')
 }
 
 [pscustomobject]@{ exists = $false } | ConvertTo-Json -Compress
