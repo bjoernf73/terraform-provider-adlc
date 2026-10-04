@@ -133,15 +133,15 @@ resource "adlc_group" "announcements" {
 # Security principal referenced by the "Domain - GPO1" backup's migration table (see
 # adlc_backup_gpo.domain_gpo1 below); the GPO's restricted groups setting resolves this
 # by name in the target domain.
-resource "adlc_group" "another_group" {
-  name     = "AnotherGroup"
+resource "adlc_group" "right_dc_ura_sesystemprofileprivilege" {
+  name     = "Right-DC-URA-SeSystemProfilePrivilege"
   path     = adlc_organizational_unit.child["Groups"].path
   category = "Security"
   scope    = "Global"
 }
 
-resource "adlc_group" "right_dc_ura_sesystemprofileprivilege" {
-  name     = "Right-DC-URA-SeSystemProfilePrivilege"
+ resource "adlc_group" "right_dc_ura_seshutdownprivilege" {
+  name     = "Right-DC-URA-SeShutdownPrivilege"
   path     = adlc_organizational_unit.child["Groups"].path
   category = "Security"
   scope    = "Global"
@@ -173,7 +173,6 @@ locals {
     "Right-DC-URA-SeRelabelPrivilege",
     "Right-DC-URA-SeRemoteShutdownPrivilege",
     "Right-DC-URA-SeSecurityPrivilege",
-    "Right-DC-URA-SeShutdownPrivilege",
   ])
 }
 
@@ -192,18 +191,16 @@ resource "adlc_group" "json_gpo_principals" {
 resource "adlc_backup_gpo" "domain_gpo1" {
   backup_name = "Domain - GPO1"
   path        = "${path.module}/backup_gpo"
-  target_name = "Domain - GPO1"
+  target_name = "Domain - ${data.adlc_domain.current.netbios_name} - GPO1"
 
   migrations = [
-    { type = "GlobalGroup", source = "AnotherGroup@utv.local", same_as_source = true },
-    { type = "LocalGroup", source = "Right-DC-URA-SeSystemProfilePrivilege@utv.local", same_as_source = true },
-    { type = "UniversalGroup", source = "Enterprise Admins@utv.local", same_as_source = true },
-    { type = "GlobalGroup", source = "Domain Admins@utv.local", same_as_source = true },
+    { type = "GlobalGroup", source = "Right-DC-URA-SeSystemProfilePrivilege@utv.local", destination = "${data.adlc_domain.current.netbios_name}\\Right-DC-URA-SeSystemProfilePrivilege" },
+    { type = "GlobalGroup", source = "Right-DC-URA-SeShutdownPrivilege@utv.local", destination = "${data.adlc_domain.current.netbios_name}\\Right-DC-URA-SeShutdownPrivilege" },
   ]
 
   depends_on = [
-    adlc_group.another_group,
     adlc_group.right_dc_ura_sesystemprofileprivilege,
+    adlc_group.right_dc_ura_seshutdownprivilege,
   ]
 }
 
@@ -211,7 +208,7 @@ resource "adlc_backup_gpo" "domain_gpo1" {
 resource "adlc_backup_gpo" "domain_gpo4" {
   backup_name = "Domain - GPO4"
   path        = "${path.module}/backup_gpo"
-  target_name = "Domain - GPO4"
+  target_name = "Domain - ${data.adlc_domain.current.netbios_name} - GPO4"
 }
 
 # Real DoD STIG baselines and custom Domain/DC hardening GPOs, exported from a separate
@@ -542,7 +539,6 @@ output "groups" {
     }
     operators     = { dn = adlc_group.operators.distinguished_name, sid = adlc_group.operators.sid }
     announcements = { dn = adlc_group.announcements.distinguished_name, sid = adlc_group.announcements.sid }
-    another_group = { dn = adlc_group.another_group.distinguished_name, sid = adlc_group.another_group.sid }
     right_dc_ura_sesystemprofileprivilege = {
       dn  = adlc_group.right_dc_ura_sesystemprofileprivilege.distinguished_name
       sid = adlc_group.right_dc_ura_sesystemprofileprivilege.sid
