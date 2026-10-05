@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0
-	github.com/hashicorp/terraform-plugin-log v0.10.0
+	github.com/hashicorp/terraform-plugin-log v0.11.0
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
 	github.com/masterzen/winrm v0.0.0-20260407182533-5570be7f80cf
 	golang.org/x/crypto v0.57.0
