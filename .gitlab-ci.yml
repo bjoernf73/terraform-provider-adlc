@@ -29,6 +29,7 @@ build:
     - test -z "$(gofmt -l main.go internal)" || { echo 'gofmt issues:'; gofmt -l main.go internal; exit 1; }
     - go vet ./...
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o dist/terraform-provider-adlc_v${PROVIDER_VERSION} .
+    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o dist/terraform-provider-adlc_v${PROVIDER_VERSION}.exe .
   artifacts:
     expire_in: 1 week
     paths:
@@ -92,6 +93,48 @@ unit:
     - TF_VAR_ou_description="updated by pipeline ${CI_PIPELINE_ID}" TF_VAR_group_scope="DomainLocal" terraform plan -detailed-exitcode 
   after_script:
     - cd test/e2e && terraform destroy -auto-approve  || true
+
+# Windows shell-executor variant of .e2e_template. A shell runner ignores `image`, cannot run
+# the bash before_script, and needs the windows_amd64 provider build, so the mirror staging and
+# the .ci.tfrc are rewritten in PowerShell. Isolated in its own resource_group so it serializes
+# against its own target host without blocking the kubernetes DC jobs.
+.e2e_windows_template:
+  stage: e2e
+  resource_group: dc-win
+  tags:
+    - win
+  needs:
+    - job: build
+      artifacts: true
+  variables:
+    TF_IN_AUTOMATION: "1"
+    TF_INPUT: "0"
+    TF_CLI_CONFIG_FILE: "$CI_PROJECT_DIR/.ci.tfrc"
+    # Persistent local state/plan on the self-hosted runner, reused across pipeline runs.
+    TF_STATE_DIR: 'C:\tftest'
+  before_script:
+    - |
+      $ErrorActionPreference = 'Stop'
+      New-Item -ItemType Directory -Force -Path $env:TF_STATE_DIR | Out-Null
+      $mirror = "$env:CI_PROJECT_DIR\.provider-mirror\registry.terraform.io\$($env:PROVIDER_NAMESPACE)\$($env:PROVIDER_TYPE)\$($env:PROVIDER_VERSION)\windows_amd64"
+      New-Item -ItemType Directory -Force -Path $mirror | Out-Null
+      $exe = "terraform-provider-adlc_v$($env:PROVIDER_VERSION).exe"
+      Copy-Item "dist\$exe" (Join-Path $mirror $exe)
+      $ciDir = $env:CI_PROJECT_DIR -replace '\\','/'
+      $ns = $env:PROVIDER_NAMESPACE
+      $type = $env:PROVIDER_TYPE
+      $tfrc = @(
+        'provider_installation {'
+        '  filesystem_mirror {'
+        "    path    = `"$ciDir/.provider-mirror`""
+        "    include = [`"registry.terraform.io/$ns/$type`"]"
+        '  }'
+        '  direct {'
+        "    exclude = [`"registry.terraform.io/$ns/$type`"]"
+        '  }'
+        '}'
+      )
+      Set-Content -Path $env:TF_CLI_CONFIG_FILE -Value $tfrc -Encoding ascii
 
 e2e:winrm:
   extends: .e2e_template
@@ -168,8 +211,10 @@ e2e:winrm-https:
     paths:
       - showcase-outputs.json
 
+# Same showcase as e2e:winrm-https, but applied from a self-hosted Windows runner (tag `win`)
+# against a second host, to prove the Windows-built provider works end to end.
 e2e:winrm-https2:
-  extends: .e2e_template
+  extends: .e2e_windows_template
   variables:
     TF_VAR_username: "$ADLC_USERNAME2"
     TF_VAR_password: "$ADLC_PASSWORD2"
@@ -187,17 +232,17 @@ e2e:winrm-https2:
       allow_failure: true
   script:
     - cd test/showcase
-    - terraform fmt -check -recursive
-    - terraform init 
-    - terraform validate 
-    - terraform apply -auto-approve 
-    # Idempotency: re-applying the same configuration must produce no changes.
-    - terraform plan -detailed-exitcode 
-    - terraform output -json | tee "$CI_PROJECT_DIR/showcase-outputs2.json"
+    - terraform init
+    - terraform validate
+    - terraform apply -auto-approve -state="$env:TF_STATE_DIR\showcase.tfstate"
+    # Idempotency: re-applying must produce no changes. State is reused across runs and the
+    # plan file is kept on the runner next to it.
+    - terraform plan -detailed-exitcode -state="$env:TF_STATE_DIR\showcase.tfstate" -out="$env:TF_STATE_DIR\showcase.tfplan"
+    - terraform output -json -state="$env:TF_STATE_DIR\showcase.tfstate" | Out-File -FilePath "$env:CI_PROJECT_DIR/showcase-outputs2.json" -Encoding ascii
   after_script:
     - echo "Showcase objects left in place for inspection."
   artifacts:
     when: always
     expire_in: 1 month
     paths:
-      - showcase-outputs.json
+      - showcase-outputs2.json
