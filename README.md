@@ -5,9 +5,7 @@ objects and policy through **PowerShell 7** on a remote Windows host over **WinR
 or **SSH**.
 
 > [!WARNING]
-> This is an **experimental** provider. It is not yet listed in the Terraform Registry,
-> and a full test suite exercising complete CRUD operations across every resource is
-> still being built. Use it with care and expect breaking changes.
+> This is an **experimental** provider.  Use it with care and expect breaking changes.
 
 ## Resources
 
@@ -72,60 +70,14 @@ make docs
 
 ## Quick start
 
-Until the provider is published to the Terraform Registry, install it from a GitHub
-release into the local Terraform plugin mirror. Run this PowerShell script on the machine
-that runs Terraform (save it as `install-adlc.ps1`):
-
-```powershell
-# install-adlc.ps1 — install the adlc provider from a GitHub release into the local
-# Terraform plugin mirror. Usage: .\install-adlc.ps1 -Version 0.0.15
-param(
-    [Parameter(Mandatory)] [string] $Version,   # release version without the leading "v", e.g. 0.0.15
-    [string] $Arch = 'amd64'
-)
-
-$ErrorActionPreference = 'Stop'
-$repo    = 'bjoernf73/terraform-provider-adlc'
-$os      = 'windows'
-$archive = "terraform-provider-adlc_${Version}_${os}_${Arch}.zip"
-$sums    = "terraform-provider-adlc_${Version}_SHA256SUMS"
-$baseUrl = "https://github.com/$repo/releases/download/v$Version"
-
-$temp = Join-Path ([System.IO.Path]::GetTempPath()) "adlc-$Version"
-New-Item -ItemType Directory -Force -Path $temp | Out-Null
-$zipPath = Join-Path $temp $archive
-$sumPath = Join-Path $temp $sums
-
-Write-Host "Downloading $archive ..."
-Invoke-WebRequest -Uri "$baseUrl/$archive" -OutFile $zipPath
-Invoke-WebRequest -Uri "$baseUrl/$sums"    -OutFile $sumPath
-
-# Verify the archive against the published checksum before trusting it.
-$expected = ((Select-String -Path $sumPath -Pattern ([regex]::Escape($archive)) | Select-Object -First 1).Line -split '\s+')[0]
-$actual   = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
-if (-not $expected -or $actual -ne $expected.ToLower()) {
-    throw "checksum mismatch for $archive (expected '$expected', got '$actual')"
-}
-
-# Terraform's unpacked plugin-mirror layout:
-#   <plugins>\registry.terraform.io\bjoernf73\adlc\<version>\<os>_<arch>\
-$dest = Join-Path $env:APPDATA "terraform.d\plugins\registry.terraform.io\bjoernf73\adlc\$Version\${os}_${Arch}"
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
-Expand-Archive -Path $zipPath -DestinationPath $dest -Force
-
-Write-Host "Installed adlc $Version to $dest"
-Write-Host "Declare it with source = 'bjoernf73/adlc', version = '$Version'."
-```
-
-With the provider installed, `terraform init` resolves it from the mirror without contacting
-the network. A minimal configuration:
+A minimal configuration:
 
 ```hcl
 terraform {
   required_providers {
     adlc = {
       source  = "bjoernf73/adlc"
-      version = "0.0.15"
+      version = "0.0.30"
     }
   }
 }
@@ -168,11 +120,7 @@ resource "adlc_access_rule" "delegate_computers" {
 
 ## Transports
 
-You should be able to use this provider on linux and windows, and probably mac. It is (sporadically) tested on gitlab runners running in a kubernetes cluster and virtual windows core and linux boxes. Mac and freebsd probably works, but then again, might not. SSH-transport is a priority, winrm over https also.  
-
-> [!WARNING]
-> A full guide on connecting — WinRM over HTTPS, Kerberos requirements and SSH with keys —
-> will eventually surface in [docs/](docs/). Until then the notes below are the short version. I will strongly urge you to do winrm over https for now.
+This provider is tested on gitlab runners running in a kubernetes cluster and virtual windows core and linux boxes. Mac and freebsd probably works, but that is untested.
 
 | Transport | Authentication |
 | --- | --- |
@@ -181,7 +129,8 @@ You should be able to use this provider on linux and windows, and probably mac. 
 
 Notes that save time:
 
-- plain HTTP (5985) is very difficult to achieve if your runner is outside of AD domain - there are multiple default settings in the Windows OS to prevent you from using that, at least in later versions. Even just for testing, rather enable winrm over https on 5986 using a self-signed certificate - it is done in minutes. Trying to make a domain controller allow authentication over http (5985) will terraform destroy your life and willpower - it's not worth it.
+- Don't spend time trying to get WinRM over http work when terraform runner is outside of domain, it is faster to configure https on 5986 using a self-signed certificate - it is done in minutes. 
+
 - `kerberos` of course needs the target FQDN, not an IP address, because the SPN is derived from
   the host name. There are other requirements as well.
 
@@ -212,74 +161,16 @@ Releases are **automatically built** via GitHub Actions when you push a tag to t
 
 ```sh
 # Create and push a new version
-git tag v0.0.15
-git push github v0.0.15       # Triggers GitHub Actions build and release       # (Optional) Also push to local GitLab
+git tag -s v0.0.30
+git push github v0.0.30       # Triggers GitHub Actions build and release 
 ```
 
 The GitHub Actions workflow ([.github/workflows/release.yml](.github/workflows/release.yml)):
-- Builds binaries for **linux_amd64**, **darwin_amd64**, **darwin_arm64**, **windows_amd64**
+- Builds binaries for **linux_amd64**, **darwin_amd64**, **darwin_arm64**, **windows_amd64** ++
 - Creates ZIP archives with proper Terraform naming (`terraform-provider-adlc_0.0.15_linux_amd64.zip`)
 - Generates SHA256 checksums
 - Creates a GitHub release with all artifacts
 
-### In a CI pipeline
-
-You probably already have a pipeline running Terraform. The filesystem-mirror idea from
-Quick Start works there as well: download the release into a **packed** mirror and point
-Terraform at it with a generated CLI config, so `terraform init` installs the provider
-from the mirror instead of the public registry. The GitLab job (Windows runner) below
-does that. Note that the required_provider section of this example config uses
-`version = "__PROVIDER_VERSION__"` which is replaced by the pipeline's variable
-`PROVIDER_VERSION` at runtime.
-
-```yaml
-prepare:
-  stage: prepare
-  variables:
-    PROVIDER_VERSION: "0.0.15"
-    PROVIDER_MIRROR: "$CI_PROJECT_DIR/.provider-mirror"
-    TF_CLI_CONFIG_FILE: "$CI_PROJECT_DIR/.terraformrc"
-  script:
-    # Pin the provider version in main.tf (Terraform forbids variables in required_providers).
-    - (Get-Content main.tf) -replace '__PROVIDER_VERSION__', $env:PROVIDER_VERSION | Set-Content main.tf -Encoding ascii
-    # Packed layout: <mirror>/<host>/<namespace>/<type>/terraform-provider-<type>_<version>_<os>_<arch>.zip
-    - $Mirror = "$env:PROVIDER_MIRROR/registry.terraform.io/bjoernf73/adlc"
-    - New-Item -ItemType Directory -Force -Path $Mirror | Out-Null
-    - $Zip = "$Mirror/terraform-provider-adlc_$($env:PROVIDER_VERSION)_windows_amd64.zip"
-    - $Url = "https://github.com/bjoernf73/terraform-provider-adlc/releases/download/v$($env:PROVIDER_VERSION)/terraform-provider-adlc_$($env:PROVIDER_VERSION)_windows_amd64.zip"
-    - Invoke-WebRequest -Uri $Url -OutFile $Zip
-    # Point terraform at the mirror instead of the public registry (the provider isn't published there).
-    # HCL treats backslashes as escapes, so use forward slashes for the Windows path.
-    - $MirrorHcl = $env:PROVIDER_MIRROR -replace '\\','/'
-    - |
-      @"
-      provider_installation {
-        filesystem_mirror {
-          path    = "$MirrorHcl"
-          include = ["registry.terraform.io/bjoernf73/adlc"]
-        }
-        direct {
-          exclude = ["registry.terraform.io/bjoernf73/adlc"]
-        }
-      }
-      "@ | Set-Content -Path $env:TF_CLI_CONFIG_FILE -Encoding ascii
-    # Provider-only init: install from the mirror without touching a backend/state yet.
-    - terraform init -backend=false
-  artifacts:
-    paths:
-      - .provider-mirror/
-      - .terraformrc
-      - .terraform.lock.hcl
-      - main.tf
-```
-
-Later stages inherit `TF_CLI_CONFIG_FILE` and the artifacts above, so their own
-`terraform init` (with the real backend) resolves the provider from the mirror rather than
-the network.
-
-### Future: Publishing to Terraform Registry
-
-The provider is currently not published to Terraform Registry. At some point, when it becomes stable, it may.
 
 ## License
 
