@@ -142,7 +142,10 @@ func (c *Client) runPowerShellOnce(ctx context.Context, script string) (transpor
 	result.Stderr = powershell.DecodeCLIXML(result.Stderr)
 
 	if err != nil {
-		return result, fmt.Errorf("running remote PowerShell: %w", err)
+		if detail := strings.TrimSpace(result.Stderr); detail != "" {
+			return result, fmt.Errorf("running remote PowerShell (%s): %w; stderr: %s", powerShellPath, err, detail)
+		}
+		return result, fmt.Errorf("running remote PowerShell (%s): %w", powerShellPath, err)
 	}
 
 	if result.ExitCode != 0 {

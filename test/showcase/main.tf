@@ -514,6 +514,39 @@ data "adlc_gpo" "domain_gpo4_lookup" {
   identity = adlc_backup_gpo.domain_gpo4.target_name
 }
 
+data "adlc_json_gpo_export" "domain_gpo4" {
+  name = adlc_backup_gpo.domain_gpo4.target_name
+
+  lifecycle {
+    postcondition {
+      condition = (
+        lower(self.id) == lower(adlc_backup_gpo.domain_gpo4.id) &&
+        jsondecode(self.json).Name == adlc_backup_gpo.domain_gpo4.target_name
+      )
+      error_message = "GPO export must identify the imported Domain GPO4 policy."
+    }
+
+    postcondition {
+      condition = (
+        jsondecode(self.json).ComputerSettingsEnabled == true &&
+        jsondecode(self.json).UserSettingsEnabled == false
+      )
+      error_message = "GPO4 export must preserve computer-enabled and user-disabled settings."
+    }
+
+    postcondition {
+      condition = alltrue([
+        for line in concat(
+          jsondecode(self.json).PolicySettings.GPOComments,
+          jsondecode(self.json).PolicySettings.MachineComments,
+          jsondecode(self.json).PolicySettings.UserComments,
+        ) : can(tostring(line))
+      ])
+      error_message = "GPO export comments must be plain strings, not PowerShell metadata objects."
+    }
+  }
+}
+
 output "domain" {
   value = {
     distinguished_name = data.adlc_domain.current.distinguished_name

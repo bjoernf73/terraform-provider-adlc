@@ -162,6 +162,41 @@ resource "adlc_backup_gpo" "domain_gpo3" {
   target_name = "Domain - GPO3"
 }
 
+data "adlc_json_gpo_export" "domain_gpo3" {
+  count = var.transport == "ssh" ? 1 : 0
+
+  name = adlc_backup_gpo.domain_gpo3[0].target_name
+
+  lifecycle {
+    postcondition {
+      condition = (
+        lower(self.id) == lower(adlc_backup_gpo.domain_gpo3[0].id) &&
+        jsondecode(self.json).Name == adlc_backup_gpo.domain_gpo3[0].target_name
+      )
+      error_message = "GPO export must identify the imported Domain - GPO3 policy."
+    }
+
+    postcondition {
+      condition = (
+        jsondecode(self.json).ComputerSettingsEnabled == true &&
+        jsondecode(self.json).UserSettingsEnabled == false
+      )
+      error_message = "GPO3 export must preserve computer-enabled and user-disabled settings."
+    }
+
+    postcondition {
+      condition = alltrue([
+        for line in concat(
+          jsondecode(self.json).PolicySettings.GPOComments,
+          jsondecode(self.json).PolicySettings.MachineComments,
+          jsondecode(self.json).PolicySettings.UserComments,
+        ) : can(tostring(line))
+      ])
+      error_message = "GPO export comments must be plain strings, not PowerShell metadata objects."
+    }
+  }
+}
+
 # Links the freshly imported GPO onto the smoke OU, exercising the create path (New-GPLink).
 # ssh-gated to match the GPO imports it references.
 resource "adlc_gpo_links" "smoke" {

@@ -37,17 +37,17 @@ $policySettings = [ordered]@{
 # GPO comment
 $gpoCommentPath = "$sysvolRoot\GPO.cmt"
 if (Test-Path -Path $gpoCommentPath) {
-    $policySettings.GPOComments = @(Get-Content -Path $gpoCommentPath -Encoding Unicode)
+    $policySettings.GPOComments = @(Get-Content -Path $gpoCommentPath -Encoding Unicode | ForEach-Object { [string]$_ })
 }
 
 # Administrative template comments
 $machineCommentPath = "$sysvolRoot\Machine\comment.cmtx"
 if (Test-Path -Path $machineCommentPath) {
-    $policySettings.MachineComments = @(Get-Content -Path $machineCommentPath -Encoding UTF8)
+    $policySettings.MachineComments = @(Get-Content -Path $machineCommentPath -Encoding UTF8 | ForEach-Object { [string]$_ })
 }
 $userCommentPath = "$sysvolRoot\User\comment.cmtx"
 if (Test-Path -Path $userCommentPath) {
-    $policySettings.UserComments = @(Get-Content -Path $userCommentPath -Encoding UTF8)
+    $policySettings.UserComments = @(Get-Content -Path $userCommentPath -Encoding UTF8 | ForEach-Object { [string]$_ })
 }
 
 # Registry settings. Exported as-is regardless of type (a live GPO can contain types
@@ -123,7 +123,7 @@ foreach ($target in @('Machine', 'User')) {
             $script.ScriptFiles += [ordered]@{
                 Type    = $folder.Name
                 Name    = $file.Name
-                Content = @(Get-Content -Path $file.FullName)
+                Content = @(Get-Content -Path $file.FullName | ForEach-Object { [string]$_ })
             }
         }
     }
@@ -154,19 +154,22 @@ foreach ($target in @('Machine', 'User')) {
 }
 
 # Client-side extensions
-$gpcObject = Get-ADObject -LDAPFilter "(&(objectClass=groupPolicyContainer)(name=$policyGuid))" -Properties gPCMachineExtensionNames, gPCUserExtensionNames @serverParams -ErrorAction Stop
+$gpcObject = Get-ADObject -LDAPFilter "(&(objectClass=groupPolicyContainer)(name=$policyGuid))" -Properties flags, gPCMachineExtensionNames, gPCUserExtensionNames @serverParams -ErrorAction Stop
+$gpoFlags = [int]$gpcObject.flags
 
 $exported = [ordered]@{
     Name                     = $gpo.DisplayName
-    ComputerSettingsEnabled  = [bool]$gpo.Computer.Enabled
-    UserSettingsEnabled      = [bool]$gpo.User.Enabled
+    ComputerSettingsEnabled  = ($gpoFlags -band 2) -eq 0
+    UserSettingsEnabled      = ($gpoFlags -band 1) -eq 0
     PolicySettings           = $policySettings
-    gPCMachineExtensionNames = $gpcObject.gPCMachineExtensionNames
-    gPCUserExtensionNames    = $gpcObject.gPCUserExtensionNames
+    gPCMachineExtensionNames = if ($null -ne $gpcObject.gPCMachineExtensionNames) { [string]$gpcObject.gPCMachineExtensionNames } else { $null }
+    gPCUserExtensionNames    = if ($null -ne $gpcObject.gPCUserExtensionNames) { [string]$gpcObject.gPCUserExtensionNames } else { $null }
 }
+
+$exportedJson = $exported | ConvertTo-Json -Depth 20
 
 [pscustomobject]@{
     exists = $true
     guid   = $gpo.Id.ToString()
-    json   = ($exported | ConvertTo-Json -Depth 20)
+    json   = $exportedJson
 } | ConvertTo-Json -Depth 5 -Compress
