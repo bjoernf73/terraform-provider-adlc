@@ -22,7 +22,8 @@ if ($null -eq $user) {
     }
 
     # New-ADUser creates the account disabled (no AccountPassword is set here). Enabled is
-    # reconciled separately below, deferring to a password resource when no password exists.
+    # reconciled separately below; when enabled = true on a passwordless account, a throwaway
+    # bootstrap password is set so the account can be enabled.
     New-ADUser @newParams @setParams @serverParams -ErrorAction Stop | Out-Null
     $user = Get-UserByIdentity $targetDN
 }
@@ -30,7 +31,13 @@ else {
     # Adopt an existing user at the same DN and reconcile it to the configuration.
     Set-ADUser -Identity $user.DistinguishedName @setParams @serverParams -ErrorAction Stop
 
-    if ([string]$user.UserPrincipalName -ne [string]$payload.user_principal_name) {
+    # -cne (case-sensitive): a case-only sAMAccountName change must still apply.
+    if ([string]$user.SamAccountName -cne [string]$payload.sam_account_name) {
+        Set-ADUser -Identity $user.DistinguishedName -SamAccountName ([string]$payload.sam_account_name) @serverParams -ErrorAction Stop
+    }
+
+    # -cne (case-sensitive): a case-only userPrincipalName change must still apply.
+    if ([string]$user.UserPrincipalName -cne [string]$payload.user_principal_name) {
         Set-ADUser -Identity $user.DistinguishedName -UserPrincipalName ([string]$payload.user_principal_name) @serverParams -ErrorAction Stop
     }
 

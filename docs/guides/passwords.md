@@ -116,18 +116,17 @@ persisted.
 
 ## Enabling the account
 
-`adlc_user.enabled` and `adlc_user_password.enable_account` overlap on purpose, but
-only one should be `true` in a given configuration:
+`adlc_user.enabled` fully owns the account's enabled state; `adlc_user_password` never
+touches it. This keeps the two concerns independent:
 
-- If `adlc_user_password` manages the password, leave `adlc_user.enabled = false` and
-  let `enable_account` (default `true`) enable the account once the password is set.
-- If a user's password is managed entirely outside Terraform, `adlc_user.enabled` is the
-  right place to control it and `adlc_user_password` should not be used at all.
-
-Setting `adlc_user.enabled = true` with no `adlc_user_password` resource fails at apply
-time, because `New-ADUser`/`Set-ADUser -Enabled $true` refuses an account with no
-password — which is Active Directory correctly rejecting an account that could never log
-on, not a bug in this provider.
+- Set `adlc_user.enabled = true` to enable the account. If it has no usable password yet,
+  the `adlc_user` resource sets a throwaway strong random password (never stored in state)
+  purely so Active Directory allows it to be enabled.
+- Add an `adlc_user_password` resource to set the real password. It replaces whatever
+  password is in place but leaves the enabled state alone, so an account that is already
+  enabled stays enabled and its chosen password is not overwritten on the next apply.
+- Set `adlc_user.enabled = false` (the default) to keep the account disabled, even when an
+  `adlc_user_password` resource manages its password.
 
 ## Rotation
 
@@ -148,6 +147,27 @@ resource "adlc_user_password" "jdoe" {
 Changing `var.rotation_marker` replaces the resource: a new password is generated (or the
 new `password` value applied), and `vault_kv_secret_v2.jdoe` picks up the new value on the
 same apply, since it references `adlc_user_password.jdoe.password` directly.
+
+## Forcing a password change at next logon
+
+Set `change_password_at_next_logon = true` to require the user to choose a new password the
+first time they sign in (this sets AD's `pwdLastSet` to 0). The typical use is a personal
+account: Terraform generates a strong initial password, you hand it to the user (for example
+through Vault), and they must replace it at first logon.
+
+```hcl
+resource "adlc_user_password" "jdoe" {
+  user                          = adlc_user.jdoe.id
+  change_password_at_next_logon = true
+}
+```
+
+This flag is fire-and-forget. Active Directory clears it as soon as the user changes the
+password, so there is nothing stable to reconcile against; the resource sets it when it sets
+the password and never reads it back. Leave it `false` (the default) for automation accounts
+that keep using the stored password. It cannot be combined with
+`adlc_user.password_never_expires` or `cannot_change_password` on the same account, because
+Active Directory rejects that combination.
 
 ## Detecting drift without resetting anything
 
